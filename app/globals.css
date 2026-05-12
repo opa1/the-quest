@@ -138,6 +138,10 @@ html {
   scrollbar-color: oklch(0.795 0.184 86.047 / 0.35) transparent;
 }
 
+body {
+  overflow-x: hidden;
+}
+
 @keyframes glow-breathe {
   0%, 100% { opacity: 0.65; }
   50% { opacity: 1; }
