@@ -17,7 +17,7 @@ export function LeftSectionHeading({
   return (
     <div className={cn('flex flex-col', className)}>
       {chapterLabel && (
-        <ChapterLabel label={chapterLabel} variant="text" />
+        <ChapterLabel label={chapterLabel} />
       )}
       <h2 className="mt-3 font-heading text-5xl font-black uppercase leading-none text-foreground md:text-6xl">
         {title}

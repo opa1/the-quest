@@ -11,7 +11,7 @@
     --card-foreground: oklch(0.147 0.004 49.3);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.147 0.004 49.3);
-    --primary: oklch(0.852 0.199 91.936);
+    --primary: oklch(77.28% 0.15729 88.54);
     --primary-foreground: oklch(0.421 0.095 57.708);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
@@ -114,6 +114,49 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ── Custom scrollbar ── */
+/* Chrome, Safari, Edge */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.795 0.184 86.047 / 0.35);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.795 0.184 86.047 / 0.65);
+}
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.795 0.184 86.047 / 0.35) transparent;
+}
+
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+.font-heading {
+  letter-spacing: 0.1em;
+}
+
+.ambient-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background:
+    radial-gradient(ellipse 85% 50% at 50% -5%, oklch(0.795 0.184 86.047 / 0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 8% 70%, oklch(0.795 0.184 86.047 / 0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 92% 30%, oklch(0.795 0.184 86.047 / 0.07) 0%, transparent 65%);
+  animation: glow-breathe 8s ease-in-out infinite;
 }
 
 @layer base {

@@ -36,18 +36,19 @@ export function TransactionCard({
         className
       )}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
+      <div className="relative flex flex-col md:flex-row items-start justify-between gap-3">
+        <div className="flex flex-col md:flex-row items-start gap-3">
           <StepIcon iconName={icon} />
           <div className="flex flex-col gap-1">
-            <span className="text-base font-bold text-foreground">{title}</span>
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="w-full text-base font-bold text-foreground">{title}</span>
+            <span className="w-full flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               {timestamp}
             </span>
           </div>
         </div>
-        <TxStatusBadge status={status} />
+
+        <TxStatusBadge status={status} className="absolute top-2 right-2 md:relative md:top-0 md:right-0" />
       </div>
 
       <Separator className="bg-border/50" />

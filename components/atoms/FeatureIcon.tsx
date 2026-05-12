@@ -1,4 +1,4 @@
-import { type LucideIcon, Orbit, Cpu, ShieldCheck, Zap, Star, Shield, Sword, Target, Globe, Lock, Code, Brain, Eye, Flame } from 'lucide-react'
+import { type LucideIcon, Orbit, Cpu, ShieldCheck, Zap, Star, Shield, Sword, Target, Globe, Lock, Code, Brain, Eye, Flame, Megaphone, Coins, ScrollText, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -16,6 +16,10 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Brain,
   Eye,
   Flame,
+  Megaphone,
+  Coins,
+  ScrollText,
+  Trophy,
 }
 
 interface FeatureIconProps {

@@ -9,7 +9,7 @@ interface ChainStatRowProps {
 
 export function ChainStatRow({ label, value, valueHighlight, className }: ChainStatRowProps) {
   return (
-    <div className={cn('flex items-center justify-between', className)}>
+    <div className={cn('flex flex-col md:flex-row md:items-center justify-between', className)}>
       <span className="text-sm text-muted-foreground">{label}</span>
       <span
         className={cn(

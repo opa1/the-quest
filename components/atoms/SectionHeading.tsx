@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils"
 
 interface SectionHeadingProps {
   topLine: string
@@ -6,11 +6,24 @@ interface SectionHeadingProps {
   className?: string
 }
 
-export function SectionHeading({ topLine, bottomLine, className }: SectionHeadingProps) {
+export function SectionHeading({
+  topLine,
+  bottomLine,
+  className,
+}: SectionHeadingProps) {
   return (
-    <div className={cn('font-heading font-black uppercase leading-none', className)}>
-      <div className="text-6xl text-foreground md:text-7xl lg:text-8xl">{topLine}</div>
-      <div className="text-6xl text-primary md:text-7xl lg:text-8xl">{bottomLine}</div>
-    </div>
+    <h1
+      className={cn(
+        "font-heading leading-none font-black uppercase",
+        className
+      )}
+    >
+      <span className="block text-6xl text-foreground md:text-6xl lg:text-7xl xl:text-8xl">
+        {topLine}
+      </span>
+      <span className="block text-6xl text-primary md:text-6xl lg:text-7xl xl:text-8xl">
+        {bottomLine}
+      </span>
+    </h1>
   )
 }

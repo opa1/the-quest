@@ -1,32 +1,30 @@
-import Link from 'next/link'
-import { Bell, User } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { QUEST_CONFIG } from '@/lib/config/quest.config'
-import { cn } from '@/lib/utils'
+import Link from "next/link"
+import { QuestLogo } from "@/components/atoms/QuestLogo"
+import { MobileNav } from "@/components/molecules/MobileNav"
+import { Button } from "@/components/ui/button"
+import { QUEST_CONFIG } from "@/lib/config/quest.config"
+import { cn } from "@/lib/utils"
 
 export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-10">
-        <Link
-          href="/"
-          className="font-heading text-xl font-black uppercase tracking-widest text-primary"
-        >
-          THE QUEST
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-10">
+        <Link href="/">
+          <QuestLogo />
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex">
           {QUEST_CONFIG.nav.links.map((link) => {
-            const isActive = link.href === '#war-room'
+            const isActive = link.href === "#war-room"
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'relative text-sm uppercase tracking-wider transition-colors',
+                  "relative text-sm tracking-wider uppercase transition-colors",
                   isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {link.label}
@@ -39,13 +37,12 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Bell className="size-4" />
+          <Button variant="default" className="hidden lg:block">
+            START QUEST
           </Button>
-          <Button variant="ghost" size="icon">
-            <User className="size-4" />
-          </Button>
-          <Button variant="default">START QUEST</Button>
+          <div className="lg:hidden">
+            <MobileNav />
+          </div>
         </div>
       </div>
     </header>

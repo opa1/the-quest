@@ -12,6 +12,8 @@ interface DifficultyBadgeProps {
 export function DifficultyBadge({ difficulty, className }: DifficultyBadgeProps) {
   const config = QUEST_CONFIG.difficultyConfig[difficulty]
 
+  const Icon = config.icon
+
   return (
     <Badge
       variant="outline"
@@ -21,7 +23,9 @@ export function DifficultyBadge({ difficulty, className }: DifficultyBadgeProps)
         className
       )}
     >
-      <span className="mr-1">{config.icon}</span>
+      <span className="mr-1">
+        <Icon size={14} />
+      </span>
       {config.label}
     </Badge>
   )

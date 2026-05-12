@@ -4,7 +4,9 @@
       "Bash(pnpm dlx *)",
       "Bash(pnpm typecheck *)",
       "Bash(pnpm dev *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(Remove-Item *)",
+      "Bash(npx shadcn@latest add sheet --yes)"
     ]
   }
 }

@@ -2,33 +2,12 @@ import { cn } from "@/lib/utils"
 
 interface ChapterLabelProps {
   label: string
-  variant?: 'pill' | 'text'
+  variant?: "pill" | "text"
   decorated?: boolean
   className?: string
 }
 
-export function ChapterLabel({
-  label,
-  variant = 'pill',
-  decorated = false,
-  className,
-}: ChapterLabelProps) {
-  const displayLabel = decorated ? `— ${label} —` : label
-
-  if (variant === 'text') {
-    return (
-      <span
-        className={cn(
-          "text-xs font-semibold uppercase tracking-widest text-primary",
-          decorated && "text-center",
-          className
-        )}
-      >
-        {displayLabel}
-      </span>
-    )
-  }
-
+export function ChapterLabel({ label, className }: ChapterLabelProps) {
   return (
     <span
       className={cn(
@@ -36,7 +15,7 @@ export function ChapterLabel({
         className
       )}
     >
-      {displayLabel}
+      {label}
     </span>
   )
 }
