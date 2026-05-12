@@ -9,7 +9,7 @@ import { WarRoom } from '@/components/sections/WarRoom'
 
 export default function Page() {
   return (
-    <main className="bg-background min-h-screen">
+    <main className="bg-background min-h-screen overflow-x-hidden">
       <Navbar />
       <WarRoom />
       <BountyBoard />

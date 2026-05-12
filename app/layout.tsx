@@ -89,7 +89,7 @@ export default function RootLayout({
         youngerThanMeHeading.variable
       )}
     >
-      <body>
+      <body className="overflow-x-hidden">
         <div className="ambient-glow" aria-hidden="true" />
         <ThemeProvider defaultTheme="dark">{children}</ThemeProvider>
       </body>
