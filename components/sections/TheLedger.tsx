@@ -11,7 +11,7 @@ export function TheLedger() {
   const { chapterLabel, title, subtext, transactions } = QUEST_CONFIG.ledger
 
   return (
-    <SectionWrapper id="ledger" className="bg-background" innerClassName="flex flex-col gap-12">
+    <SectionWrapper id="the-ledger" className="bg-background" innerClassName="flex flex-col gap-12">
       <ScrollReveal className="flex flex-col items-center gap-4 text-center">
         <ChapterLabel label={chapterLabel} />
         <SectionTitle title={title} subtext={subtext} />

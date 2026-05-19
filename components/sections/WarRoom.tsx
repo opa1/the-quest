@@ -8,17 +8,24 @@ import { OperativeStack } from "@/components/molecules/OperativeStack"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 export function WarRoom() {
-  const { chapterLabel, headlineTop, headlineBottom, subtext, statLabel, avatarStack } =
-    QUEST_CONFIG.hero
+  const {
+    chapterLabel,
+    headlineTop,
+    headlineBottom,
+    subtext,
+    statLabel,
+    avatarStack,
+  } = QUEST_CONFIG.hero
   const { activeOperatives } = QUEST_CONFIG.stats
 
   return (
     <SectionWrapper
       id="war-room"
-      className="relative min-h-screen bg-background"
+      className="relative min-h-screen bg-background pt-16"
       innerClassName="flex min-h-screen items-center pt-24 pb-16 sm:pb-16 lg:pb-16"
       style={{
-        backgroundImage: "radial-gradient(circle, oklch(1 0 0 / 0.035) 1px, transparent 1px)",
+        backgroundImage:
+          "radial-gradient(circle, oklch(1 0 0 / 0.035) 1px, transparent 1px)",
         backgroundSize: "28px 28px",
       }}
     >
@@ -40,7 +47,7 @@ export function WarRoom() {
         <ScrollReveal
           direction="right"
           delay={200}
-          className="flex shrink-0 justify-center w-full lg:basis-[45%] lg:justify-end"
+          className="flex w-full shrink-0 justify-center lg:basis-[45%] lg:justify-end"
         >
           <OperativeStack />
         </ScrollReveal>

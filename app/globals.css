@@ -151,18 +151,6 @@ body {
   letter-spacing: 0.1em;
 }
 
-.ambient-glow {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 40;
-  background:
-    radial-gradient(ellipse 85% 50% at 50% -5%, oklch(0.795 0.184 86.047 / 0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 40% at 8% 70%, oklch(0.795 0.184 86.047 / 0.07) 0%, transparent 65%),
-    radial-gradient(ellipse 50% 40% at 92% 30%, oklch(0.795 0.184 86.047 / 0.07) 0%, transparent 65%);
-  animation: glow-breathe 8s ease-in-out infinite;
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
