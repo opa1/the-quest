@@ -6,7 +6,6 @@ export const QUEST_CONFIG = {
   },
   nav: {
     links: [
-      { label: "War Room", href: "#war-room" },
       { label: "Bounty Board", href: "#bounty-board" },
       { label: "Arsenal", href: "#arsenal" },
       { label: "Guild", href: "#guild" },

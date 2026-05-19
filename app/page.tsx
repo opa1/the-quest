@@ -1,3 +1,4 @@
+import { ScrollToTop } from '@/components/atoms/ScrollToTop'
 import { Arsenal } from '@/components/sections/Arsenal'
 import { BountyBoard } from '@/components/sections/BountyBoard'
 import { Guild } from '@/components/sections/Guild'
@@ -18,6 +19,7 @@ export default function Page() {
       <TheLedger />
       <TheGates />
       <SiteFooter />
+      <ScrollToTop />
     </main>
   )
 }
