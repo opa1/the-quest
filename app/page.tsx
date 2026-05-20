@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+import AuthDialogTrigger from './_components/AuthDialogTrigger'
 import { ScrollToTop } from '@/components/atoms/ScrollToTop'
 import { Arsenal } from '@/components/sections/Arsenal'
 import { BountyBoard } from '@/components/sections/BountyBoard'
@@ -11,6 +13,9 @@ import { WarRoom } from '@/components/sections/WarRoom'
 export default function Page() {
   return (
     <main className="bg-background min-h-screen overflow-x-hidden">
+      <Suspense>
+        <AuthDialogTrigger />
+      </Suspense>
       <Navbar />
       <WarRoom />
       <BountyBoard />

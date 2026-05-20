@@ -4,6 +4,7 @@ import localFont from "next/font/local"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import AuthProvider from "@/components/providers/AuthProvider"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -90,7 +91,9 @@ export default function RootLayout({
       )}
     >
       <body className="overflow-x-hidden">
-        <ThemeProvider defaultTheme="dark">{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="dark">
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

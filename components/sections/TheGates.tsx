@@ -1,10 +1,14 @@
+'use client'
+
 import { ChapterLabel } from "@/components/atoms/ChapterLabel"
 import { ScrollReveal } from "@/components/atoms/ScrollReveal"
 import { SectionWrapper } from "@/components/atoms/SectionWrapper"
 import { Button } from "@/components/ui/button"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
+import { useAuthGuard } from "@/lib/hooks/useAuthGuard"
 
 export function TheGates() {
+  const { guardedNavigate } = useAuthGuard()
   return (
     <SectionWrapper
       className="relative flex min-h-screen items-center justify-center overflow-hidden"
@@ -30,12 +34,14 @@ export function TheGates() {
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-4">
-          <Button variant="default" size="lg" asChild>
-            <a href={QUEST_CONFIG.gates.primaryCta.href}>
-              <span className="text-sm font-bold tracking-widest uppercase">
-                {QUEST_CONFIG.gates.primaryCta.label}
-              </span>
-            </a>
+          <Button
+            variant="default"
+            size="lg"
+            onClick={() => guardedNavigate('/realm')}
+          >
+            <span className="text-sm font-bold tracking-widest uppercase">
+              {QUEST_CONFIG.gates.primaryCta.label}
+            </span>
           </Button>
           <Button variant="outline" size="lg" asChild>
             <a href={QUEST_CONFIG.gates.secondaryCta.href}>

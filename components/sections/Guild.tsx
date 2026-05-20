@@ -9,9 +9,11 @@ import { StepNumber } from '@/components/atoms/StepNumber'
 import { GuildStepCard } from '@/components/molecules/GuildStepCard'
 import { Button } from '@/components/ui/button'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
+import { useAuthGuard } from '@/lib/hooks/useAuthGuard'
 
 export function Guild() {
-  const { chapterLabel, title, subtext, ctaLabel, ctaHref, steps } = QUEST_CONFIG.guild
+  const { chapterLabel, title, subtext, ctaLabel, steps } = QUEST_CONFIG.guild
+  const { guardedNavigate } = useAuthGuard()
   const stepsRef = useRef<HTMLDivElement>(null)
   const [activeCount, setActiveCount] = useState(0)
 
@@ -82,10 +84,8 @@ export function Guild() {
       </div>
 
       <ScrollReveal delay={200} className="flex justify-center">
-        <Button variant="outline" size="lg" asChild>
-          <a href={ctaHref}>
-            <span className="text-sm uppercase tracking-widest">{ctaLabel}</span>
-          </a>
+        <Button variant="outline" size="lg" onClick={() => guardedNavigate('/realm')}>
+          <span className="text-sm uppercase tracking-widest">{ctaLabel}</span>
         </Button>
       </ScrollReveal>
     </SectionWrapper>

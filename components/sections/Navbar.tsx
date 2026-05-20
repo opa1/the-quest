@@ -6,9 +6,11 @@ import { QuestLogo } from "@/components/atoms/QuestLogo"
 import { MobileNav } from "@/components/molecules/MobileNav"
 import { Button } from "@/components/ui/button"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
+import { useAuthGuard } from "@/lib/hooks/useAuthGuard"
 import { cn } from "@/lib/utils"
 
 export function Navbar() {
+  const { guardedNavigate } = useAuthGuard()
   const [activeSection, setActiveSection] = useState("")
 
   useEffect(() => {
@@ -71,7 +73,11 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button variant="default" className="hidden lg:block">
+          <Button
+            variant="default"
+            className="hidden lg:block"
+            onClick={() => guardedNavigate('/realm')}
+          >
             START QUEST
           </Button>
           <div className="lg:hidden">

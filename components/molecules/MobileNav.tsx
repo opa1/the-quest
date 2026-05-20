@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet'
@@ -29,6 +30,7 @@ export function MobileNav() {
         side="right"
         className="flex w-75 flex-col border-l border-border/50 bg-background p-0 sm:w-90"
       >
+        <SheetTitle className="sr-only">Navigation menu</SheetTitle>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
           <QuestLogo />
