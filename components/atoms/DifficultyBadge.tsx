@@ -10,7 +10,10 @@ interface DifficultyBadgeProps {
 }
 
 export function DifficultyBadge({ difficulty, className }: DifficultyBadgeProps) {
-  const config = QUEST_CONFIG.difficultyConfig[difficulty]
+  const normalized = difficulty?.toUpperCase() as Difficulty
+  const config = QUEST_CONFIG.difficultyConfig[normalized]
+
+  if (!config) return null
 
   const Icon = config.icon
 

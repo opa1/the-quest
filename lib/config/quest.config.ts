@@ -299,6 +299,20 @@ export const QUEST_CONFIG = {
     ],
     copyright: "© 2024 THE QUEST PROTOCOL. ALL RIGHTS RESERVED.",
   },
+  realmNav: [
+    { label: 'Realm',       href: '/realm',       icon: 'Home' },
+    { label: 'Missions',    href: '/missions',     icon: 'Sword' },
+    { label: 'Post',        href: '/post',         icon: 'Plus' },
+    { label: 'Record',      href: '/record',       icon: 'ScrollText' },
+    { label: 'Leaderboard', href: '/leaderboard',  icon: 'Trophy' },
+  ] as const,
+
+  realmDropdown: [
+    { label: 'Profile',  href: '/profile',  icon: 'User' },
+    { label: 'Settings', href: '/settings', icon: 'Settings' },
+    { label: 'Sign Out', href: null,        icon: 'LogOut' },
+  ] as const,
+
   onboarding: {
     title: 'FORGE YOUR IDENTITY',
     subtext: 'One name. One record. Everything you earn ties back to it.',
@@ -331,5 +345,37 @@ export const QUEST_CONFIG = {
       home: '/realm',
     },
     triggerRoutes: ['/realm', '/tasks/create', '/tasks/claim'],
+  },
+  realm: {
+    feedFilters: [
+      { label: 'ALL',       value: 'ALL' },
+      { label: 'BOUNTIES',  value: 'BOUNTIES' },
+      { label: 'CLAIMED',   value: 'CLAIMED' },
+      { label: 'COMPLETED', value: 'COMPLETED' },
+    ],
+    feedEmptyState: {
+      title: 'The board is quiet.',
+      subtext: 'Be the first to post a mission or claim a bounty.',
+    },
+    activeMission: {
+      label: 'ACTIVE MISSION',
+      submitLabel: 'SUBMIT WORK',
+      dropLabel: 'DROP MISSION',
+    },
+    rightPanel: {
+      topQuestersTitle: 'TOP QUESTERS',
+      postMissionLabel: 'POST A MISSION',
+      postMissionHref: '/post',
+    },
+  } as const,
+  mobileNav: [
+    { label: 'Realm',       href: '/realm',       icon: 'Home' },
+    { label: 'Missions',    href: '/missions',     icon: 'Sword' },
+    { label: 'Record',      href: '/record',       icon: 'ScrollText' },
+    { label: 'Leaderboard', href: '/leaderboard',  icon: 'Trophy' },
+  ],
+  mobileNavPost: {
+    href: '/post',
+    icon: 'Plus',
   },
 } as const

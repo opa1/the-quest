@@ -31,9 +31,9 @@ export async function proxy(request: NextRequest) {
   )
   if (isBypassRoute) return supabaseResponse
 
-  const isProtectedRoute = QUEST_CONFIG.auth.triggerRoutes.some(
-    (route) => request.nextUrl.pathname.startsWith(route)
-  )
+  const isProtectedRoute = [
+    '/realm', '/missions', '/post', '/record', '/leaderboard', '/profile', '/settings',
+  ].some((route) => request.nextUrl.pathname.startsWith(route))
 
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL('/', request.url)
