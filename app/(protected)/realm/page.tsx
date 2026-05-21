@@ -36,7 +36,7 @@ export default async function RealmPage() {
   return (
     <div className="flex flex-col items-start gap-8 md:flex-row">
       {/* Left col — Feed */}
-      <div className="w-full flex min-w-0 flex-1 flex-col gap-6">
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-6">
         <FeedFilterBar />
         <FeedList />
       </div>

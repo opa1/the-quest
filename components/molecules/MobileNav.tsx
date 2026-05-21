@@ -1,22 +1,24 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { Menu, X, ArrowRight } from 'lucide-react'
-import { QuestLogo } from '@/components/atoms/QuestLogo'
-import { Button } from '@/components/ui/button'
+import { useState } from "react"
+import Link from "next/link"
+import { Menu, X, ArrowRight } from "lucide-react"
+import { QuestLogo } from "@/components/atoms/QuestLogo"
+import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
   SheetTitle,
   SheetTrigger,
   SheetClose,
-} from '@/components/ui/sheet'
-import { QUEST_CONFIG } from '@/lib/config/quest.config'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/sheet"
+import { QUEST_CONFIG } from "@/lib/config/quest.config"
+import { cn } from "@/lib/utils"
+import { useAuthGuard } from "@/lib/hooks/useAuthGuard"
 
 export function MobileNav() {
   const [open, setOpen] = useState(false)
+  const { guardedNavigate } = useAuthGuard()
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -43,10 +45,10 @@ export function MobileNav() {
               <Link
                 href={link.href}
                 className={cn(
-                  'flex items-center justify-between rounded-lg px-3 py-3.5',
-                  'text-sm font-semibold uppercase tracking-widest',
-                  'text-muted-foreground transition-colors duration-150',
-                  'hover:bg-muted/60 hover:text-foreground'
+                  "flex items-center justify-between rounded-lg px-3 py-3.5",
+                  "text-sm font-semibold tracking-widest uppercase",
+                  "text-muted-foreground transition-colors duration-150",
+                  "hover:bg-muted/60 hover:text-foreground"
                 )}
               >
                 {link.label}
@@ -57,17 +59,21 @@ export function MobileNav() {
         </nav>
 
         {/* Divider + CTAs */}
-        <div className="border-t border-border/40 px-6 py-6 flex flex-col gap-3">
-          <Button variant="default" size="lg" className="w-full" asChild>
-            <a href="/signup">
-              <span className="text-sm font-bold uppercase tracking-widest">
-                Start Your Quest
-              </span>
-            </a>
+        <div className="flex flex-col gap-3 border-t border-border/40 px-6 py-6">
+          <Button
+            variant="default"
+            size="lg"
+            className="w-full"
+            asChild
+            onClick={() => guardedNavigate("/realm")}
+          >
+            <span className="text-sm font-bold tracking-widest uppercase">
+              Start Your Quest
+            </span>
           </Button>
           <Button variant="outline" size="lg" className="w-full" asChild>
             <a href="#bounty-board" onClick={() => setOpen(false)}>
-              <span className="text-sm font-bold uppercase tracking-widest">
+              <span className="text-sm font-bold tracking-widest uppercase">
                 Browse The Board
               </span>
             </a>
