@@ -7,7 +7,9 @@
       "Bash(npx tsc *)",
       "Bash(Remove-Item *)",
       "Bash(npx shadcn@latest add sheet --yes)",
-      "Bash(pnpm add *)"
+      "Bash(pnpm add *)",
+      "PowerShell(pnpm dlx *)",
+      "Bash(git add *)"
     ]
   }
 }

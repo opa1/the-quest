@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ interface BountyCardProps {
 }
 
 export function BountyCard({
+  id,
   category,
   difficulty,
   title,
@@ -51,8 +53,10 @@ export function BountyCard({
 
       <div className="flex items-end justify-between">
         <XPReward xp={xp} />
-        <Button variant={featured ? 'default' : 'outline'} size="sm">
-          <span className="text-xs uppercase tracking-widest">ACCEPT</span>
+        <Button variant={featured ? 'default' : 'outline'} size="sm" asChild>
+          <Link href={`/tasks/${id}`}>
+            <span className="text-xs uppercase tracking-widest">ACCEPT</span>
+          </Link>
         </Button>
       </div>
     </Card>

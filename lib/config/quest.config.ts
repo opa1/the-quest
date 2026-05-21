@@ -378,4 +378,33 @@ export const QUEST_CONFIG = {
     href: '/post',
     icon: 'Plus',
   },
+  missions: {
+    title: 'OPEN MISSIONS',
+    subtext: 'Browse all available bounties. Pick your target. Head to the mission for details.',
+    emptyState: {
+      title: 'No missions found.',
+      subtext: 'Try a different filter or check back later.',
+    },
+    categories: [
+      { label: 'All',       value: 'ALL' },
+      { label: 'Design',    value: 'DESIGN' },
+      { label: 'Code',      value: 'CODE' },
+      { label: 'Writing',   value: 'WRITING' },
+      { label: 'Research',  value: 'RESEARCH' },
+      { label: 'Marketing', value: 'MARKETING' },
+      { label: 'Combat',    value: 'COMBAT' },
+    ],
+    difficulties: [
+      { label: 'All',    value: 'ALL' },
+      { label: 'Easy',   value: 'easy' },
+      { label: 'Medium', value: 'medium' },
+      { label: 'Hard',   value: 'hard' },
+    ],
+    sortOptions: [
+      { label: 'Newest First',    value: 'newest' },
+      { label: 'Oldest First',    value: 'oldest' },
+      { label: 'Highest Reward',  value: 'reward' },
+    ],
+    pageSize: 12,
+  } as const,
 } as const
