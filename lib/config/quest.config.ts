@@ -431,4 +431,28 @@ export const QUEST_CONFIG = {
     ],
     pageSize: 12,
   } as const,
+  record: {
+    title: 'MY RECORD',
+    subtext: 'Your permanent on-chain contribution history. Every deed. Forever.',
+    emptyState: {
+      title: 'No contributions yet.',
+      subtext: 'Complete a mission to start building your record.',
+      ctaLabel: 'BROWSE MISSIONS',
+      ctaHref: '/missions',
+    },
+    stats: [
+      { key: 'completed', label: 'Tasks Completed', icon: 'CheckCircle2' },
+      { key: 'credits',   label: 'Credits Earned',  icon: 'Coins' },
+      { key: 'rank',      label: 'Current Rank',     icon: 'Trophy' },
+      { key: 'proofs',    label: 'On-Chain Proofs',  icon: 'Link2' },
+    ],
+    profileCard: {
+      memberSince:    'MEMBER SINCE',
+      walletLabel:    'CARDANO WALLET',
+      walletUnlinked: 'No wallet linked',
+      linkWalletLabel: 'LINK WALLET',
+      linkWalletHref:  '/settings',
+      xHandleLabel:   'X ACCOUNT',
+    },
+  } as const,
 } as const
