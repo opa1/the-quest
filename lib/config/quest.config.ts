@@ -378,6 +378,30 @@ export const QUEST_CONFIG = {
     href: '/post',
     icon: 'Plus',
   },
+  taskDetail: {
+    statusLabels: {
+      open:      'OPEN',
+      claimed:   'IN PROGRESS',
+      completed: 'COMPLETED',
+      cancelled: 'CANCELLED',
+    },
+    statusColors: {
+      open:      'text-green-400 border-green-800 bg-green-950',
+      claimed:   'text-amber-400 border-amber-800 bg-amber-950',
+      completed: 'text-blue-400 border-blue-800 bg-blue-950',
+      cancelled: 'text-muted-foreground border-border bg-muted',
+    },
+    actions: {
+      claim:       'CLAIM THIS MISSION',
+      submitWork:  'SUBMIT WORK',
+      drop:        'DROP MISSION',
+      youPosted:   'YOU POSTED THIS',
+      inProgress:  'MISSION IN PROGRESS',
+      loginPrompt: 'SIGN IN TO CLAIM',
+    },
+    onChainTitle:   'ON-CHAIN PROOF',
+    onChainSubtext: 'This mission has been permanently recorded on the Cardano blockchain.',
+  } as const,
   missions: {
     title: 'OPEN MISSIONS',
     subtext: 'Browse all available bounties. Pick your target. Head to the mission for details.',
