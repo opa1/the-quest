@@ -455,4 +455,20 @@ export const QUEST_CONFIG = {
       xHandleLabel:   'X ACCOUNT',
     },
   } as const,
+  leaderboard: {
+    title: 'THE HALL OF FAME',
+    subtext: 'The names that echo through the realm. Ranked by credits earned.',
+    tableHeaders: {
+      rank:      'RANK',
+      operative: 'OPERATIVE',
+      credits:   'CREDITS',
+      completed: 'COMPLETED',
+      proofs:    'PROOFS',
+    },
+    emptyState: {
+      title: 'No operatives ranked yet.',
+      subtext: 'Complete missions to appear on the leaderboard.',
+    },
+    pageSize: 20,
+  } as const,
 } as const

@@ -37,6 +37,17 @@ export interface UserProfile {
   onboarded: boolean
 }
 
+export interface LeaderboardEntry {
+  rank: number
+  id: string
+  username: string | null
+  avatar_url: string | null
+  credits: number
+  completed: number
+  proofs: number
+  isCurrentUser?: boolean
+}
+
 export interface Mission {
   id: string
   title: string
