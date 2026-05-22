@@ -84,3 +84,43 @@ export async function dropTask(taskId: string) {
 
   return { success: true }
 }
+
+export async function createMission(formData: {
+  title: string
+  description: string
+  category: string
+  difficulty: 'easy' | 'medium' | 'hard'
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'not_authenticated' }
+
+  const creditMap = { easy: 400, medium: 1200, hard: 3000 }
+
+  const { data: task, error } = await supabase
+    .from('tasks')
+    .insert({
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      category: formData.category,
+      difficulty: formData.difficulty,
+      reward_credits: creditMap[formData.difficulty],
+      status: 'open',
+      created_by: user.id,
+    })
+    .select()
+    .single()
+
+  if (error) return { error: 'create_failed' }
+
+  await supabase.from('task_logs').insert({
+    task_id: task.id,
+    user_id: user.id,
+    action: 'created',
+  })
+
+  revalidatePath('/missions')
+  revalidatePath('/realm')
+
+  return { success: true, taskId: task.id }
+}

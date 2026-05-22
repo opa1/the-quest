@@ -37,6 +37,18 @@ export interface UserProfile {
   onboarded: boolean
 }
 
+export interface PostMissionForm {
+  title: string
+  description: string
+  category: string
+  difficulty: 'easy' | 'medium' | 'hard'
+}
+
+export type PostMissionError = {
+  field: keyof PostMissionForm | 'submit'
+  message: string
+} | null
+
 export interface LeaderboardEntry {
   rank: number
   id: string
