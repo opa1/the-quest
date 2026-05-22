@@ -32,7 +32,7 @@ export default async function ProtectedLayout({
         credits={profile.credits ?? 0}
       />
       <ScrollArea className="min-h-0 w-full flex-1">
-        <main className="mx-auto w-full max-w-7xl px-4 py-8 pt-22 pb-24 md:px-10 md:pb-8">
+        <main className="mx-auto w-full max-w-7xl px-4 py-8 pt-22 pb-24 md:px-10 lg:pb-8">
           {children}
         </main>
       </ScrollArea>
