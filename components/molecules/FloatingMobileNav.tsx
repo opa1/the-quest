@@ -1,12 +1,14 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 import MobileNavIcon from "@/components/atoms/MobileNavIcon"
 import MobileNavPostButton from "@/components/atoms/MobileNavPostButton"
 
 export default function FloatingMobileNav() {
   const pathname = usePathname()
+  const router = useRouter()
+  const isPostPage = pathname === "/post"
 
   return (
     <div className="lg:hidden fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center">
@@ -25,7 +27,11 @@ export default function FloatingMobileNav() {
 
       {/* Post button — larger, overlaps right edge of pill */}
       <div className="z-10">
-        <MobileNavPostButton href={QUEST_CONFIG.mobileNavPost.href} />
+        <MobileNavPostButton
+          href={QUEST_CONFIG.mobileNavPost.href}
+          isCancel={isPostPage}
+          onClick={isPostPage ? () => router.back() : undefined}
+        />
       </div>
     </div>
   )
