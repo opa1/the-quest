@@ -23,6 +23,7 @@ interface WalletConnectBlockProps {
   onConnected: (address: string) => void
   onSkip: () => void
   connectedAddress: string | null
+  showSkip?: boolean
   className?: string
 }
 
@@ -34,6 +35,7 @@ export default function WalletConnectBlock({
   onConnected,
   onSkip,
   connectedAddress,
+  showSkip = true,
   className,
 }: WalletConnectBlockProps) {
   const { walletTitle, walletSubtext, walletSkip } = QUEST_CONFIG.onboarding
@@ -71,16 +73,18 @@ export default function WalletConnectBlock({
 
       <Separator />
 
-      <div className="flex justify-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSkip}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          {walletSkip}
-        </Button>
-      </div>
+      {showSkip && (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSkip}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {walletSkip}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

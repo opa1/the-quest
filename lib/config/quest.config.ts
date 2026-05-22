@@ -309,7 +309,6 @@ export const QUEST_CONFIG = {
 
   realmDropdown: [
     { label: 'Profile',  href: '/profile',  icon: 'User' },
-    { label: 'Settings', href: '/settings', icon: 'Settings' },
     { label: 'Sign Out', href: null,        icon: 'LogOut' },
   ] as const,
 
@@ -451,7 +450,7 @@ export const QUEST_CONFIG = {
       walletLabel:    'CARDANO WALLET',
       walletUnlinked: 'No wallet linked',
       linkWalletLabel: 'LINK WALLET',
-      linkWalletHref:  '/settings',
+      linkWalletHref:  '/profile',
       xHandleLabel:   'X ACCOUNT',
     },
   } as const,
@@ -495,5 +494,35 @@ export const QUEST_CONFIG = {
     formTab:        'FORM',
     previewTitle:   'MISSION PREVIEW',
     previewSubtext: 'This is how your mission will appear on the Bounty Board.',
+  } as const,
+  settings: {
+    title: 'PROFILE',
+    sections: {
+      profile: {
+        title:               'PROFILE',
+        subtext:             'Update your identity in the realm.',
+        avatarLabel:         'AVATAR',
+        avatarNote:          'Pulled from your X account. Update it on X to change it here.',
+        usernameLabel:       'USERNAME',
+        usernamePlaceholder: 'Your unique username',
+        xHandleLabel:        'X ACCOUNT',
+        xHandleNote:         'Linked via X OAuth. Cannot be changed here.',
+        saveLabel:           'SAVE CHANGES',
+        savingLabel:         'SAVING...',
+        savedLabel:          'SAVED',
+      },
+      wallet: {
+        title:              'CARDANO WALLET',
+        subtext:            'Link your wallet to unlock on-chain proof of your work.',
+        connectedLabel:     'CONNECTED WALLET',
+        disconnectLabel:    'DISCONNECT',
+        disconnectConfirm:  'Are you sure you want to disconnect your wallet?',
+      },
+      danger: {
+        title:           'DANGER ZONE',
+        signOutLabel:    'SIGN OUT',
+        signOutSubtext:  'You will be redirected to the landing page.',
+      },
+    },
   } as const,
 } as const

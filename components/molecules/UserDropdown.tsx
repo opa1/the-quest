@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { User, Settings, LogOut } from 'lucide-react'
+import { User, LogOut } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,13 +39,6 @@ export default function UserDropdown({ username, avatarUrl }: UserDropdownProps)
           <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
             <User className="w-4 h-4" />
             Profile
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
-            <Settings className="w-4 h-4" />
-            Settings
           </Link>
         </DropdownMenuItem>
 
