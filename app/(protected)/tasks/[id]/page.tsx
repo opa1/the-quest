@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { CategoryBadge } from '@/components/atoms/CategoryBadge'
@@ -16,6 +16,9 @@ interface TaskDetailPageProps {
 export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
   const { id } = await params
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
 
   const { data: task } = await supabase
     .from('tasks')

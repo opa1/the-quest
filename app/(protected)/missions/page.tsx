@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/server'
 import MissionsFilterBar from '@/components/molecules/MissionsFilterBar'
 import MissionsGrid from '@/components/molecules/MissionsGrid'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
@@ -7,7 +8,10 @@ export const metadata = {
   description: 'Browse all open missions on The Quest. Claim a bounty and start building your legacy.',
 }
 
-export default function MissionsPage() {
+export default async function MissionsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   return (
     <div className="flex flex-col gap-8">
 
@@ -25,7 +29,7 @@ export default function MissionsPage() {
       <MissionsFilterBar />
 
       {/* Mission grid */}
-      <MissionsGrid />
+      <MissionsGrid currentUserId={user?.id} />
 
     </div>
   )

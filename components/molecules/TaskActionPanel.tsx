@@ -11,11 +11,11 @@ import OnChainProofBlock from '@/components/atoms/OnChainProofBlock'
 import { useAuthStore } from '@/lib/stores/auth.store'
 import { claimTask, dropTask } from '@/app/actions/tasks'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
-import { Loader2 } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertCircle, Clock, XCircle } from 'lucide-react'
 
 interface TaskActionPanelProps {
   taskId: string
-  status: 'open' | 'claimed' | 'completed' | 'cancelled'
+  status: 'open' | 'claimed' | 'submitted' | 'rejected' | 'completed' | 'cancelled'
   createdById: string
   claimedById: string | null
   xp: number
@@ -30,32 +30,43 @@ export default function TaskActionPanel({
   taskId, status, createdById, claimedById,
   xp, txHash, completedAt, claimedAt, claimer, poster,
 }: TaskActionPanelProps) {
-  const { user, openDialog } = useAuthStore()
+  const { user } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [claimed, setClaimed] = useState(false)
   const { actions } = QUEST_CONFIG.taskDetail
 
   const isCreator = user?.id === createdById
   const isClaimer = user?.id === claimedById
-  const isAuthenticated = !!user
 
   const handleClaim = async () => {
-    if (!isAuthenticated) {
-      openDialog(`/tasks/${taskId}`)
-      return
-    }
     setIsLoading(true)
     setError(null)
+
     const result = await claimTask(taskId)
-    if (result.error) setError('Failed to claim mission. Try again.')
+
+    if (result.error) {
+      setError(result.message ?? 'Something went wrong. Please try again.')
+      setIsLoading(false)
+      return
+    }
+
+    setClaimed(true)
     setIsLoading(false)
   }
 
   const handleDrop = async () => {
     setIsLoading(true)
     setError(null)
+
     const result = await dropTask(taskId)
-    if (result.error) setError('Failed to drop mission. Try again.')
+
+    if (result.error) {
+      setError(result.message ?? 'Something went wrong. Please try again.')
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(false)
   }
 
@@ -68,33 +79,59 @@ export default function TaskActionPanel({
 
         <Separator />
 
-        {/* OPEN — not logged in */}
-        {status === 'open' && !isAuthenticated && (
-          <Button variant="default" size="lg" className="w-full" onClick={handleClaim}>
-            <span className="uppercase tracking-widest text-sm font-bold">
-              {actions.loginPrompt}
-            </span>
-          </Button>
+        {/* OPEN — not creator */}
+        {status === 'open' && !isCreator && (
+          <>
+            {claimed ? (
+              <div className="flex flex-col items-center gap-3 py-2">
+                <div className="flex items-center gap-2 text-green-400">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="text-sm font-bold uppercase tracking-widest">
+                    Mission Claimed
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Head to your{' '}
+                  <a href="/record" className="text-primary underline underline-offset-2">
+                    Record
+                  </a>{' '}
+                  to track your active missions.
+                </p>
+                <Button variant="default" size="sm" className="w-full" asChild>
+                  <a href={`/tasks/${taskId}/submit`}>
+                    <span className="uppercase tracking-widest text-xs font-bold">
+                      SUBMIT WORK
+                    </span>
+                  </a>
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                size="lg"
+                className="w-full"
+                onClick={handleClaim}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    <span className="uppercase tracking-widest text-sm font-bold">
+                      CLAIMING...
+                    </span>
+                  </>
+                ) : (
+                  <span className="uppercase tracking-widest text-sm font-bold">
+                    {actions.claim}
+                  </span>
+                )}
+              </Button>
+            )}
+          </>
         )}
 
-        {/* OPEN — logged in, not creator */}
-        {status === 'open' && isAuthenticated && !isCreator && (
-          <Button
-            variant="default"
-            size="lg"
-            className="w-full"
-            onClick={handleClaim}
-            disabled={isLoading}
-          >
-            {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            <span className="uppercase tracking-widest text-sm font-bold">
-              {isLoading ? 'CLAIMING...' : actions.claim}
-            </span>
-          </Button>
-        )}
-
-        {/* OPEN — logged in, is creator */}
-        {status === 'open' && isAuthenticated && isCreator && (
+        {/* OPEN — is creator */}
+        {status === 'open' && isCreator && (
           <div className="text-xs uppercase tracking-widest text-muted-foreground text-center py-2">
             {actions.youPosted}
           </div>
@@ -131,6 +168,50 @@ export default function TaskActionPanel({
           </div>
         )}
 
+        {/* SUBMITTED — claimer awaiting review */}
+        {status === 'submitted' && isClaimer && (
+          <div className="flex flex-col items-center gap-2 py-2">
+            <div className="flex items-center gap-2 text-primary">
+              <Clock className="w-4 h-4" />
+              <span className="text-xs uppercase tracking-widest font-bold">Proof Submitted</span>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Your submission is awaiting review by the mission poster.
+            </p>
+          </div>
+        )}
+
+        {/* SUBMITTED — poster can review */}
+        {status === 'submitted' && isCreator && (
+          <Button variant="default" size="lg" className="w-full" asChild>
+            <a href={`/tasks/${taskId}/review`}>
+              <span className="uppercase tracking-widest text-sm font-bold">REVIEW SUBMISSION</span>
+            </a>
+          </Button>
+        )}
+
+        {/* SUBMITTED — other viewer */}
+        {status === 'submitted' && !isClaimer && !isCreator && (
+          <div className="text-xs uppercase tracking-widest text-muted-foreground text-center py-2">
+            AWAITING REVIEW
+          </div>
+        )}
+
+        {/* REJECTED — claimer can resubmit */}
+        {status === 'rejected' && isClaimer && (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-destructive justify-center py-1">
+              <XCircle className="w-4 h-4" />
+              <span className="text-xs uppercase tracking-widest font-bold">Submission Rejected</span>
+            </div>
+            <Button variant="default" size="lg" className="w-full" asChild>
+              <a href={`/tasks/${taskId}/submit`}>
+                <span className="uppercase tracking-widest text-sm font-bold">RESUBMIT</span>
+              </a>
+            </Button>
+          </div>
+        )}
+
         {/* COMPLETED */}
         {status === 'completed' && (
           <div className="text-xs uppercase tracking-widest text-green-400 text-center py-2">
@@ -140,7 +221,10 @@ export default function TaskActionPanel({
 
         {/* Error */}
         {error && (
-          <p className="text-xs text-destructive text-center">{error}</p>
+          <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/30 rounded-[10px] px-4 py-3">
+            <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+            <p className="text-sm text-destructive leading-snug">{error}</p>
+          </div>
         )}
       </Card>
 

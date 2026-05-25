@@ -9,7 +9,8 @@
       "Bash(npx shadcn@latest add sheet --yes)",
       "Bash(pnpm add *)",
       "PowerShell(pnpm dlx *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(pnpm run *)"
     ]
   }
 }

@@ -20,6 +20,8 @@ export default function PostMissionForm() {
     description: '',
     category: '',
     difficulty: 'easy',
+    ada_reward: 0,
+    proof_type: 'any',
   })
   const [error, setError] = useState<PostMissionError>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -32,6 +34,14 @@ export default function PostMissionForm() {
 
   const onDifficultyChange = (value: 'easy' | 'medium' | 'hard') => {
     setForm((prev) => ({ ...prev, difficulty: value }))
+  }
+
+  const onAdaRewardChange = (value: number) => {
+    setForm((prev) => ({ ...prev, ada_reward: value }))
+  }
+
+  const onProofTypeChange = (value: 'url' | 'text' | 'image' | 'any') => {
+    setForm((prev) => ({ ...prev, proof_type: value }))
   }
 
   const validate = (): PostMissionError => {
@@ -89,6 +99,8 @@ export default function PostMissionForm() {
             error={error}
             onChange={onChange}
             onDifficultyChange={onDifficultyChange}
+            onAdaRewardChange={onAdaRewardChange}
+            onProofTypeChange={onProofTypeChange}
           />
           <Separator />
           {error?.field === 'submit' && <FormFieldError message={error.message} />}
@@ -120,6 +132,8 @@ export default function PostMissionForm() {
                 error={error}
                 onChange={onChange}
                 onDifficultyChange={onDifficultyChange}
+                onAdaRewardChange={onAdaRewardChange}
+                onProofTypeChange={onProofTypeChange}
               />
               <Separator />
               {error?.field === 'submit' && <FormFieldError message={error.message} />}

@@ -42,6 +42,8 @@ export interface PostMissionForm {
   description: string
   category: string
   difficulty: 'easy' | 'medium' | 'hard'
+  ada_reward: number
+  proof_type: 'url' | 'text' | 'image' | 'any'
 }
 
 export type PostMissionError = {
@@ -67,6 +69,10 @@ export interface Mission {
   category: string
   difficulty: 'easy' | 'medium' | 'hard'
   reward_credits: number
+  ada_reward?: number
+  proof_type?: 'url' | 'text' | 'image' | 'any'
+  proof_notes?: string | null
+  proof_image_url?: string | null
   status: string
   created_by: string
   created_at: string
@@ -74,4 +80,10 @@ export interface Mission {
     username: string | null
     avatar_url: string | null
   } | null
+}
+
+export type ProofUrl = {
+  id: string
+  url: string
+  created_at: string
 }

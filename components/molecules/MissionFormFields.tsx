@@ -20,13 +20,22 @@ interface MissionFormFieldsProps {
   error: PostMissionError
   onChange: (field: keyof PostMissionForm, value: string) => void
   onDifficultyChange: (value: 'easy' | 'medium' | 'hard') => void
+  onAdaRewardChange: (value: number) => void
+  onProofTypeChange: (value: 'url' | 'text' | 'image' | 'any') => void
 }
 
 const categories = QUEST_CONFIG.missions.categories.filter((c) => c.value !== 'ALL')
 const difficulties = ['easy', 'medium', 'hard'] as const
 const { form: cfg } = QUEST_CONFIG.postMission
 
-export default function MissionFormFields({ form, error, onChange, onDifficultyChange }: MissionFormFieldsProps) {
+const proofTypeOptions = [
+  { value: 'any',   label: 'Any (URL, text, or image)' },
+  { value: 'url',   label: 'URL' },
+  { value: 'text',  label: 'Text' },
+  { value: 'image', label: 'Image' },
+] as const
+
+export default function MissionFormFields({ form, error, onChange, onDifficultyChange, onAdaRewardChange, onProofTypeChange }: MissionFormFieldsProps) {
   const fieldError = (field: keyof PostMissionForm) =>
     error?.field === field ? error.message : null
 
@@ -110,6 +119,44 @@ export default function MissionFormFields({ form, error, onChange, onDifficultyC
           ))}
         </div>
         <FormFieldError message={fieldError('difficulty')} />
+      </div>
+
+      {/* Proof Type */}
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+          {cfg.proofTypeLabel}
+        </Label>
+        <Select
+          value={form.proof_type}
+          onValueChange={(v) => onProofTypeChange(v as 'url' | 'text' | 'image' | 'any')}
+        >
+          <SelectTrigger className="bg-muted/30 border-border/50 focus:border-primary">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {proofTypeOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* ADA Reward */}
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+          {cfg.adaRewardLabel}
+        </Label>
+        <Input
+          type="number"
+          min={0}
+          value={form.ada_reward === 0 ? '' : form.ada_reward}
+          onChange={(e) => onAdaRewardChange(Number(e.target.value) || 0)}
+          placeholder={cfg.adaRewardPlaceholder}
+          className="bg-muted/30 border-border/50 focus:border-primary"
+        />
+        <p className="text-xs text-muted-foreground">{cfg.adaRewardHelper}</p>
       </div>
 
     </div>

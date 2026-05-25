@@ -7,7 +7,11 @@ import { Button } from '@/components/ui/button'
 import MissionsEmptyState from '@/components/atoms/MissionsEmptyState'
 import { BountyCard } from '@/components/molecules/BountyCard'
 
-export default function MissionsGrid() {
+interface MissionsGridProps {
+  currentUserId?: string
+}
+
+export default function MissionsGrid({ currentUserId }: MissionsGridProps) {
   const { missions, isLoading, hasMore, fetchMissions, loadMore } = useMissionsStore()
 
   useEffect(() => {
@@ -42,6 +46,11 @@ export default function MissionsGrid() {
             title={mission.title}
             description={mission.description}
             xp={mission.reward_credits}
+            adaReward={mission.ada_reward}
+            proofType={mission.proof_type}
+            taskStatus={mission.status}
+            createdBy={mission.created_by}
+            currentUserId={currentUserId}
             featured={false}
           />
         ))}
