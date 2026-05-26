@@ -24,5 +24,5 @@ export default function TimeAgo({ date, className }: TimeAgoProps) {
     return () => clearInterval(id)
   }, [date])
 
-  return <span className={cn('text-xs text-muted-foreground', className)}>{label}</span>
+  return <span suppressHydrationWarning className={cn('text-xs text-muted-foreground', className)}>{label}</span>
 }

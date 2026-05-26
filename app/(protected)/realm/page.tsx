@@ -1,10 +1,9 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
-import FeedFilterBar from "@/components/molecules/FeedFilterBar"
-import FeedList from "@/components/molecules/FeedList"
-import TopQuesters from "@/components/molecules/TopQuesters"
-import ActiveMissionBanner from "@/components/molecules/ActiveMissionBanner"
 import { Button } from "@/components/ui/button"
+import TopQuesters from "@/components/molecules/TopQuesters"
+import RecentMissions from "@/components/molecules/RecentMissions"
+import RealmActivityLog from "@/components/molecules/RealmActivityLog"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 export default async function RealmPage() {
@@ -12,13 +11,6 @@ export default async function RealmPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const { data: activeMission } = await supabase
-    .from("tasks")
-    .select("id, title, category, difficulty")
-    .eq("claimed_by", user?.id)
-    .eq("status", "claimed")
-    .single()
 
   const { data: topQuesters } = await supabase
     .from("profiles")
@@ -34,17 +26,14 @@ export default async function RealmPage() {
   }))
 
   return (
-    <div className="flex flex-col items-start gap-8 md:flex-row">
-      {/* Left col — Feed */}
+    <div className="flex flex-col items-start gap-8 lg:flex-row">
+      {/* Left col — Recent missions */}
       <div className="flex w-full min-w-0 flex-1 flex-col gap-6">
-        <FeedFilterBar />
-        <FeedList />
+        <RecentMissions currentUserId={user?.id ?? ""} />
       </div>
 
-      {/* Right col — Status panel */}
-      <div className="flex w-full flex-col gap-4 md:w-[320px] md:shrink-0">
-        <ActiveMissionBanner task={activeMission ?? null} />
-
+      {/* Right col — Actions + questers + activity */}
+      <div className="flex w-full flex-col gap-4 lg:w-[320px] lg:shrink-0">
         <Button variant="default" size="lg" className="w-full" asChild>
           <Link href={QUEST_CONFIG.realm.rightPanel.postMissionHref}>
             <span className="text-sm font-bold tracking-widest uppercase">
@@ -54,6 +43,8 @@ export default async function RealmPage() {
         </Button>
 
         <TopQuesters questers={questersWithRank} />
+
+        <RealmActivityLog />
       </div>
     </div>
   )

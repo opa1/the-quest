@@ -108,7 +108,7 @@ export default function MissionFormFields({ form, error, onChange, onDifficultyC
         <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
           {cfg.difficultyLabel}
         </Label>
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-3 gap-3">
           {difficulties.map((d) => (
             <DifficultyRadioOption
               key={d}

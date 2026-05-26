@@ -7,13 +7,13 @@ interface MissionPreviewProps {
 }
 
 export default function MissionPreview({ form }: MissionPreviewProps) {
-  const { previewTitle, previewSubtext, difficultyCredits } = QUEST_CONFIG.postMission
+  const { previewTitle, previewSubtext } = QUEST_CONFIG.postMission
 
   const title = form.title.trim() || 'Your mission title will appear here'
   const description = form.description.trim() || 'Your mission brief will appear here...'
   const category = form.category || 'DESIGN'
-  const xp = difficultyCredits[form.difficulty].credits
   const difficulty = form.difficulty.toUpperCase() as 'EASY' | 'MEDIUM' | 'HARD'
+  const adaReward = form.ada_reward > 0 ? Math.round(form.ada_reward * 1_000_000) : undefined
 
   return (
     <div className="flex flex-col gap-4">
@@ -29,7 +29,9 @@ export default function MissionPreview({ form }: MissionPreviewProps) {
         difficulty={difficulty}
         title={title}
         description={description}
-        xp={xp}
+        xp={0}
+        adaReward={adaReward}
+        proofType={form.proof_type}
         featured={false}
       />
     </div>

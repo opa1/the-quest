@@ -9,6 +9,7 @@ export interface FeedEvent {
   category: string
   difficulty: 'EASY' | 'MEDIUM' | 'HARD'
   reward_credits: number
+  ada_reward?: number
   actor_username: string
   actor_avatar: string | null
   poster_username: string | null

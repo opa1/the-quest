@@ -1,8 +1,10 @@
 export type MissionCategory = 'ALL' | 'DESIGN' | 'CODE' | 'WRITING' | 'RESEARCH' | 'MARKETING' | 'COMBAT'
 export type MissionDifficulty = 'ALL' | 'easy' | 'medium' | 'hard'
 export type MissionSort = 'newest' | 'oldest' | 'reward'
+export type MissionView = 'ALL' | 'MINE'
 
 export interface MissionFilters {
+  viewMode: MissionView
   category: MissionCategory
   difficulty: MissionDifficulty
   sort: MissionSort

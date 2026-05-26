@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils"
 
 interface TxHashBlockProps {
   blockHash: string
@@ -7,11 +7,16 @@ interface TxHashBlockProps {
   className?: string
 }
 
-export function TxHashBlock({ blockHash, txId, compact, className }: TxHashBlockProps) {
+export function TxHashBlock({
+  blockHash,
+  txId,
+  compact,
+  className,
+}: TxHashBlockProps) {
   return (
     <div
       className={cn(
-        'rounded-[8px] border border-border/40 bg-background/60 px-4 py-3 font-mono text-[11px] text-muted-foreground',
+        "space-y-4 rounded-[8px] border border-border/40 bg-background/60 px-4 py-3 font-mono text-[11px] break-all text-muted-foreground",
         className
       )}
     >
@@ -21,8 +26,13 @@ export function TxHashBlock({ blockHash, txId, compact, className }: TxHashBlock
         </div>
       ) : (
         <>
-          <div>Block Hash: {blockHash}</div>
-          <div>TxID: {txId}</div>
+          <div>
+            <b>Block Hash:</b> <p className="inline">{blockHash}</p>
+          </div>
+
+          <div>
+            <b>TxID:</b> <p className="inline">{txId}</p>
+          </div>
         </>
       )}
     </div>

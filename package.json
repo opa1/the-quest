@@ -1,11 +1,13 @@
 {
   "name": "next-app",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "dev:cardano": "node cardano-service/index.js",
+    "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:cardano\"",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
@@ -14,6 +16,8 @@
   "dependencies": {
     "@cardano-foundation/cardano-connect-with-wallet": "^0.2.22",
     "@cardano-foundation/cardano-connect-with-wallet-core": "^0.2.12",
+    "@lucid-evolution/lucid": "^0.4.31",
+    "@lucid-evolution/provider": "^0.1.92",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
     "@tabler/icons-react": "^3.44.0",
@@ -37,6 +41,7 @@
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.1.2",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.1.7",
     "postcss": "^8",

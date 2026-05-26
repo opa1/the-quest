@@ -1,9 +1,9 @@
-'use client'
+"use client"
 
-import { create } from 'zustand'
-import { createClient } from '@/lib/supabase/client'
-import type { Mission, MissionFilters } from '@/lib/types/missions'
-import { QUEST_CONFIG } from '@/lib/config/quest.config'
+import { create } from "zustand"
+import { createClient } from "@/lib/supabase/client"
+import type { Mission, MissionFilters } from "@/lib/types/missions"
+import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 interface MissionsState {
   missions: Mission[]
@@ -13,15 +13,19 @@ interface MissionsState {
   page: number
   lastFetched: number | null
 
-  setFilter: <K extends keyof MissionFilters>(key: K, value: MissionFilters[K]) => void
+  setFilter: <K extends keyof MissionFilters>(
+    key: K,
+    value: MissionFilters[K]
+  ) => void
   fetchMissions: (reset?: boolean) => Promise<void>
   loadMore: () => Promise<void>
 }
 
 const defaultFilters: MissionFilters = {
-  category: 'ALL',
-  difficulty: 'ALL',
-  sort: 'newest',
+  viewMode: "ALL",
+  category: "ALL",
+  difficulty: "ALL",
+  sort: "newest",
 }
 
 export const useMissionsStore = create<MissionsState>((set, get) => ({
@@ -55,31 +59,43 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
     const to = from + pageSize - 1
 
     let query = supabase
-      .from('tasks')
-      .select('id, title, description, category, difficulty, reward_credits, ada_reward, proof_type, status, created_by, created_at, profiles!tasks_created_by_fkey(username, avatar_url)')
-      .eq('status', 'open')
+      .from("tasks")
+      .select(
+        "id, title, description, category, difficulty, reward_credits, ada_reward, proof_type, status, created_by, created_at, profiles!tasks_created_by_fkey(username, avatar_url)"
+      )
       .range(from, to)
 
-    if (filters.category !== 'ALL') {
-      query = query.eq('category', filters.category)
+    if (filters.viewMode === "MINE") {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        query = query.eq("created_by", user.id)
+      }
+    } else {
+      // Public board only shows open missions
+      query = query.eq("status", "open")
     }
 
-    if (filters.difficulty !== 'ALL') {
-      query = query.eq('difficulty', filters.difficulty)
+
+    if (filters.category !== "ALL") {
+      query = query.eq("category", filters.category)
     }
 
-    if (filters.sort === 'newest') {
-      query = query.order('created_at', { ascending: false })
-    } else if (filters.sort === 'oldest') {
-      query = query.order('created_at', { ascending: true })
-    } else if (filters.sort === 'reward') {
-      query = query.order('reward_credits', { ascending: false })
+    if (filters.difficulty !== "ALL") {
+      query = query.eq("difficulty", filters.difficulty)
+    }
+
+    if (filters.sort === "newest") {
+      query = query.order("created_at", { ascending: false })
+    } else if (filters.sort === "oldest") {
+      query = query.order("created_at", { ascending: true })
+    } else if (filters.sort === "reward") {
+      query = query.order("reward_credits", { ascending: false })
     }
 
     const { data, error } = await query
 
     if (error) {
-      console.error('Failed to fetch missions:', error.message)
+      console.error("Failed to fetch missions:", error.message)
       set({ isLoading: false })
       return
     }

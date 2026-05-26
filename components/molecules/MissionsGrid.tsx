@@ -1,18 +1,19 @@
-'use client'
+"use client"
 
-import { useEffect } from 'react'
-import { useMissionsStore } from '@/lib/stores/missions.store'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Button } from '@/components/ui/button'
-import MissionsEmptyState from '@/components/atoms/MissionsEmptyState'
-import { BountyCard } from '@/components/molecules/BountyCard'
+import { useEffect } from "react"
+import { useMissionsStore } from "@/lib/stores/missions.store"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import MissionsEmptyState from "@/components/atoms/MissionsEmptyState"
+import { BountyCard } from "@/components/molecules/BountyCard"
 
 interface MissionsGridProps {
   currentUserId?: string
 }
 
 export default function MissionsGrid({ currentUserId }: MissionsGridProps) {
-  const { missions, isLoading, hasMore, fetchMissions, loadMore } = useMissionsStore()
+  const { missions, isLoading, hasMore, fetchMissions, loadMore } =
+    useMissionsStore()
 
   useEffect(() => {
     fetchMissions(true)
@@ -20,9 +21,9 @@ export default function MissionsGrid({ currentUserId }: MissionsGridProps) {
 
   if (isLoading && missions.length === 0) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[220px] rounded-[16px]" />
+          <Skeleton key={i} className="h-55 rounded-[16px]" />
         ))}
       </div>
     )
@@ -34,9 +35,8 @@ export default function MissionsGrid({ currentUserId }: MissionsGridProps) {
 
   return (
     <div className="flex flex-col gap-8">
-
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {missions.map((mission) => (
           <BountyCard
             key={mission.id}
@@ -65,13 +65,12 @@ export default function MissionsGrid({ currentUserId }: MissionsGridProps) {
             onClick={loadMore}
             disabled={isLoading}
           >
-            <span className="uppercase tracking-widest text-sm font-bold">
-              {isLoading ? 'LOADING...' : 'LOAD MORE MISSIONS'}
+            <span className="text-sm font-bold tracking-widest uppercase">
+              {isLoading ? "LOADING..." : "LOAD MORE MISSIONS"}
             </span>
           </Button>
         </div>
       )}
-
     </div>
   )
 }
