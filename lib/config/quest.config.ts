@@ -344,12 +344,25 @@ export const QUEST_CONFIG = {
       xSubtext: "Sign in with your X account",
       terms:
         "By continuing you agree to our Terms of Engagement and Privacy Policy.",
+      walletButton: "CONTINUE WITH WALLET",
+      orDivider: "or",
     },
     redirects: {
       onboarding: "/onboarding",
       home: "/realm",
     },
     triggerRoutes: ["/realm", "/tasks/create", "/tasks/claim"],
+  },
+  walletAuth: {
+    title: "CONNECT YOUR WALLET",
+    subtitle: "Sign in securely using your Cardano wallet",
+    connectingLabel: "Connecting wallet...",
+    signingLabel: "Please sign the message in your wallet...",
+    verifyingLabel: "Verifying signature...",
+    backButton: "Back",
+    retryButton: "Try Again",
+    wrongMethodError:
+      "This wallet is linked to an X account. Please sign in with X instead.",
   },
   realm: {
     feedFilters: [

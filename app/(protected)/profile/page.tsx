@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import ProfileSettingsForm from '@/components/molecules/ProfileSettingsForm'
 import WalletSettingsBlock from '@/components/molecules/WalletSettingsBlock'
 import DangerZoneBlock from '@/components/molecules/DangerZoneBlock'
+import LinkXBlock from '@/components/molecules/LinkXBlock'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 
 export const metadata = {
@@ -17,11 +18,13 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('username, avatar_url, x_handle, wallet_address')
+    .select('username, avatar_url, x_handle, wallet_address, signup_method, x_linked')
     .eq('id', user.id)
     .single()
 
   if (!profile) redirect('/')
+
+  const isWalletUser = profile.signup_method === 'wallet'
 
   return (
     <div className="flex flex-col gap-8 max-w-2xl mx-auto">
@@ -39,6 +42,13 @@ export default async function ProfilePage() {
       <WalletSettingsBlock
         walletAddress={profile.wallet_address ?? null}
       />
+
+      {isWalletUser && (
+        <LinkXBlock
+          xLinked={profile.x_linked ?? false}
+          xHandle={profile.x_handle ?? null}
+        />
+      )}
 
       <DangerZoneBlock />
 

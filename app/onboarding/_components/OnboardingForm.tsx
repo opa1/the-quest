@@ -16,6 +16,8 @@ interface OnboardingFormProps {
   defaultUsername: string
   avatarUrl: string | null
   xHandle: string | null
+  signupMethod?: 'x' | 'wallet'
+  preConnectedWallet?: string | null
 }
 
 export default function OnboardingForm({
@@ -23,9 +25,12 @@ export default function OnboardingForm({
   defaultUsername,
   avatarUrl,
   xHandle,
+  signupMethod = 'x',
+  preConnectedWallet = null,
 }: OnboardingFormProps) {
+  const isWalletUser = signupMethod === 'wallet'
   const [username, setUsername] = useState(defaultUsername)
-  const [walletAddress, setWalletAddress] = useState<string | null>(null)
+  const [walletAddress, setWalletAddress] = useState<string | null>(preConnectedWallet)
   const [walletSkipped, setWalletSkipped] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -114,29 +119,40 @@ export default function OnboardingForm({
 
       <Separator />
 
-      {!walletSkipped && (
+      {isWalletUser ? (
         <WalletConnectBlock
-          onConnected={(address) => setWalletAddress(address)}
-          onSkip={() => {
-            setWalletSkipped(true)
-            setWalletAddress(null)
-          }}
+          onConnected={() => {}}
+          onSkip={() => {}}
           connectedAddress={walletAddress}
+          showSkip={false}
         />
-      )}
+      ) : (
+        <>
+          {!walletSkipped && (
+            <WalletConnectBlock
+              onConnected={(address) => setWalletAddress(address)}
+              onSkip={() => {
+                setWalletSkipped(true)
+                setWalletAddress(null)
+              }}
+              connectedAddress={walletAddress}
+            />
+          )}
 
-      {walletSkipped && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Wallet skipped</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setWalletSkipped(false)}
-            className="text-xs text-primary hover:text-primary/80"
-          >
-            Link wallet instead
-          </Button>
-        </div>
+          {walletSkipped && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Wallet skipped</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWalletSkipped(false)}
+                className="text-xs text-primary hover:text-primary/80"
+              >
+                Link wallet instead
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       <Button

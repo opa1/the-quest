@@ -23,7 +23,7 @@ export default async function OnboardingPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarded, username, avatar_url, x_handle")
+    .select("onboarded, username, avatar_url, x_handle, signup_method, wallet_address")
     .eq("id", user.id)
     .single()
 
@@ -31,9 +31,18 @@ export default async function OnboardingPage({
     redirect(redirectParam ?? "/realm")
   }
 
-  const defaultUsername = profile?.username ?? user.user_metadata?.user_name ?? ""
-  const avatarUrl = profile?.avatar_url ?? user.user_metadata?.picture ?? null
-  const xHandle = profile?.x_handle ?? user.user_metadata?.user_name ?? null
+  const signupMethod = (profile?.signup_method ?? 'x') as 'x' | 'wallet'
+  const isWalletUser = signupMethod === 'wallet'
+
+  const defaultUsername = isWalletUser
+    ? (profile?.username ?? '')
+    : (profile?.username ?? user.user_metadata?.user_name ?? '')
+  const avatarUrl = isWalletUser
+    ? null
+    : (profile?.avatar_url ?? user.user_metadata?.picture ?? null)
+  const xHandle = isWalletUser
+    ? null
+    : (profile?.x_handle ?? user.user_metadata?.user_name ?? null)
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6 py-16">
@@ -42,6 +51,8 @@ export default async function OnboardingPage({
         defaultUsername={defaultUsername}
         avatarUrl={avatarUrl}
         xHandle={xHandle}
+        signupMethod={signupMethod}
+        preConnectedWallet={isWalletUser ? (profile?.wallet_address ?? null) : null}
       />
     </main>
   )

@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
     if (!error && data.user) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("onboarded, username, avatar_url, x_handle")
+        .select("onboarded, username, avatar_url, x_handle, signup_method, x_linked")
         .eq("id", data.user.id)
         .single()
 
       if (!profile) {
+        // New X sign-up: create profile
         const xHandle = data.user.user_metadata?.user_name ?? null
         const avatarUrl = data.user.user_metadata?.picture ?? null
 
@@ -28,11 +29,28 @@ export async function GET(request: NextRequest) {
           x_handle: xHandle,
           x_id: data.user.user_metadata?.provider_id ?? null,
           onboarded: false,
+          signup_method: 'x',
         })
 
         const onboardingParams = new URLSearchParams()
         if (redirect) onboardingParams.set("redirect", redirect)
         return NextResponse.redirect(`${origin}/onboarding?${onboardingParams}`)
+      }
+
+      // Wallet user linking their X account
+      if (profile.signup_method === 'wallet') {
+        const xHandle = data.user.user_metadata?.user_name ?? null
+        const avatarUrl = data.user.user_metadata?.picture ?? null
+
+        await supabase.from("profiles").update({
+          x_id: data.user.user_metadata?.provider_id ?? null,
+          x_handle: xHandle,
+          avatar_url: avatarUrl ?? profile.avatar_url,
+          x_linked: true,
+          updated_at: new Date().toISOString(),
+        }).eq("id", data.user.id)
+
+        return NextResponse.redirect(`${origin}/profile`)
       }
 
       if (!profile.onboarded) {
