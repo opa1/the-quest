@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { ExternalLink, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import UserAvatar from '@/components/atoms/UserAvatar'
 import type { ProofUrl } from '@/lib/types/missions'
@@ -20,6 +20,14 @@ export default function ProofDisplay({ task, proofUrls }: ProofDisplayProps) {
   const hasContent = task.proof_notes || task.proof_image_url || proofUrls.length > 0
 
   const [imageLoaded, setImageLoaded] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  // Handle cached images: if the browser already has the image, onLoad won't fire
+  useEffect(() => {
+    if (imgRef.current?.complete) {
+      setImageLoaded(true)
+    }
+  }, [])
   const [viewerOpen, setViewerOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
 
@@ -124,6 +132,7 @@ export default function ProofDisplay({ task, proofUrls }: ProofDisplayProps) {
               )}
               {/* Actual image */}
               <img
+                ref={imgRef}
                 src={task.proof_image_url}
                 alt="Submitted proof"
                 onLoad={() => setImageLoaded(true)}
