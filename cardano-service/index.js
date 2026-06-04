@@ -1,4 +1,9 @@
-import "dotenv/config"
+import { config } from "dotenv"
+import { fileURLToPath } from "url"
+import { dirname, join } from "path"
+
+// Always load the .env next to this file, regardless of where the process was launched from
+config({ path: join(dirname(fileURLToPath(import.meta.url)), ".env") })
 import express from "express"
 import cors from "cors"
 import crypto from "crypto"
@@ -69,12 +74,10 @@ app.post("/payout", requireSecret, async (req, res) => {
       .json({ error: "invalid_request", message: "toAddress is required." })
   }
   if (!lovelace || typeof lovelace !== "number" || lovelace <= 0) {
-    return res
-      .status(400)
-      .json({
-        error: "invalid_request",
-        message: "lovelace must be a positive number.",
-      })
+    return res.status(400).json({
+      error: "invalid_request",
+      message: "lovelace must be a positive number.",
+    })
   }
 
   try {
