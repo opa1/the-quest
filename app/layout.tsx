@@ -5,6 +5,8 @@ import localFont from "next/font/local"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import AuthProvider from "@/components/providers/AuthProvider"
+import { Suspense } from "react"
+import AuthDialogTrigger from "./_components/AuthDialogTrigger"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -92,7 +94,13 @@ export default function RootLayout({
     >
       <body className="overflow-x-hidden">
         <ThemeProvider defaultTheme="dark">
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <Suspense>
+              <AuthDialogTrigger />
+            </Suspense>
+            
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
