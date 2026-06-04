@@ -5,7 +5,8 @@ export async function verifyWalletSignature(
   walletAddress: string,
   signature: string,
   key: string,
-  nonce: string
+  nonce: string,
+  messagePrefix = 'Sign in to The Quest'
 ): Promise<boolean> {
   try {
     // Decode COSESign1: [protected_headers_bytes, unprotected, payload, sig_bytes]
@@ -18,8 +19,7 @@ export async function verifyWalletSignature(
 
     if (!payload) return false
 
-    // Verify the payload matches the expected sign-in message
-    const expectedMessage = `Sign in to The Quest: ${nonce}`
+    const expectedMessage = `${messagePrefix}: ${nonce}`
     if (Buffer.from(payload).toString('utf8') !== expectedMessage) return false
 
     // Decode COSEKey -- integer keys decoded as string keys by cbor-x

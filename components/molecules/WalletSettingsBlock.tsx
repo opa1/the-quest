@@ -5,8 +5,8 @@ import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Copy } from 'lucide-react'
-import WalletConnectBlock from '@/components/molecules/WalletConnectBlock'
-import { updateWalletAddress, disconnectWallet } from '@/app/actions/profile'
+import { WalletLinkFlow } from '@/components/molecules/WalletLinkFlow'
+import { disconnectWallet } from '@/app/actions/profile'
 import { truncateAddress } from '@/lib/utils/rank'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 
@@ -19,11 +19,6 @@ const { wallet: cfg } = QUEST_CONFIG.settings.sections
 export default function WalletSettingsBlock({ walletAddress: initialWallet }: WalletSettingsBlockProps) {
   const [wallet, setWallet] = useState(initialWallet)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
-
-  const handleWalletConnected = async (address: string) => {
-    const result = await updateWalletAddress(address)
-    if ('success' in result) setWallet(address)
-  }
 
   const handleDisconnect = async () => {
     if (!window.confirm(cfg.disconnectConfirm)) return
@@ -74,12 +69,7 @@ export default function WalletSettingsBlock({ walletAddress: initialWallet }: Wa
           </div>
         </div>
       ) : (
-        <WalletConnectBlock
-          onConnected={handleWalletConnected}
-          onSkip={() => {}}
-          connectedAddress={null}
-          showSkip={false}
-        />
+        <WalletLinkFlow onLinked={(address) => setWallet(address)} />
       )}
 
     </Card>
