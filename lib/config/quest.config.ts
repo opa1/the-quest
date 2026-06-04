@@ -11,6 +11,7 @@ export const QUEST_CONFIG = {
       { label: "Arsenal", href: "#arsenal" },
       { label: "Guild", href: "#guild" },
       { label: "The Ledger", href: "#the-ledger" },
+      { label: "Ledger", href: "/ledger" },
     ],
   },
   hero: {
@@ -164,9 +165,9 @@ export const QUEST_CONFIG = {
       {
         id: "earn-credits",
         icon: "Coins",
-        title: "Earn Credits",
+        title: "Earn ADA + XP",
         description:
-          "Every completed mission pays out. Credits stack. Reputation grows.",
+          "Every completed mission pays out real ADA directly to your wallet plus XP that builds your on-chain reputation.",
       },
       {
         id: "build-your-record",
@@ -222,7 +223,7 @@ export const QUEST_CONFIG = {
         icon: "Gem",
         title: "COLLECT YOUR LEGACY",
         description:
-          "Get paid in credits. Get recorded on-chain. Your reputation grows with every delivery.",
+          "Get paid in ADA directly to your Cardano wallet. Earn XP that builds your rank. Every completion is recorded on-chain forever.",
       },
     ],
   },
@@ -233,37 +234,14 @@ export const QUEST_CONFIG = {
     subtext:
       "When you complete a task on The Quest, we don't just update a database. We submit a transaction to the Cardano blockchain. That record cannot be altered, deleted, or taken from you. Ever.",
     chainStatus: {
-      network: "Cardano Mainnet",
-      totalRepMinted: "12,450",
-      activeContracts: 3,
       ctaLabel: "VIEW FULL LEDGER",
-      ctaHref: "#",
+      ctaHref: "/ledger",
+      statLabels: {
+        totalXpAwarded: "Total XP Awarded",
+        openMissions: "Open Missions",
+        totalAdaEarned: "Total ADA Earned",
+      },
     },
-    transactions: [
-      {
-        id: "tx-dragons-hoard",
-        icon: "CheckSquare",
-        title: "Bounty: Dragon's Hoard",
-        timestamp: "2024-10-24 14:32:01 UTC",
-        status: "CONFIRMED",
-        blockHash: "0x8fB32C1...9a4b21D4",
-        txId: "d74a9c1b...8e3f2a1c",
-        explorerUrl:
-          "https://preprod.cardanoscan.io/transaction/d74a9c1b8e3f2a1c",
-        repMinted: 500,
-      },
-      {
-        id: "tx-mapping-abyss",
-        icon: "Compass",
-        title: "Mission: Mapping the Abyss",
-        timestamp: "2024-10-22 09:15:44 UTC",
-        status: "ARCHIVED",
-        blockHash: "0x2a1C...4b9d",
-        txId: "e82c...1a9f",
-        explorerUrl: "https://preprod.cardanoscan.io/transaction/e82c1a9f",
-        repMinted: null,
-      },
-    ],
     txStatusConfig: {
       CONFIRMED: {
         label: "CONFIRMED",
@@ -274,6 +252,11 @@ export const QUEST_CONFIG = {
         label: "ARCHIVED",
         dotClass: "bg-muted-foreground",
         textClass: "text-muted-foreground",
+      },
+      PENDING: {
+        label: "ON-CHAIN PENDING",
+        dotClass: "bg-amber-500",
+        textClass: "text-amber-400",
       },
     },
   },
@@ -308,6 +291,7 @@ export const QUEST_CONFIG = {
     { label: "Missions", href: "/missions", icon: "Sword" },
     { label: "Post", href: "/post", icon: "Plus" },
     { label: "Record", href: "/record", icon: "ScrollText" },
+    { label: "Ledger", href: "/ledger", icon: "ScrollText" },
     { label: "Leaderboard", href: "/leaderboard", icon: "Trophy" },
   ] as const,
 

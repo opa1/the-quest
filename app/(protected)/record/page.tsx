@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import RecordStatsStrip from '@/components/molecules/RecordStatsStrip'
 import ContributionList from '@/components/molecules/ContributionList'
 import ProfileCard from '@/components/molecules/ProfileCard'
@@ -24,35 +25,40 @@ export default async function RecordPage() {
 
   if (!profile) redirect('/')
 
-  const { data: logs } = await supabase
-    .from('task_logs')
-    .select(`
-      id,
-      cardano_tx_hash,
-      created_at,
-      tasks (
-        id,
-        title,
-        category,
-        difficulty,
-        reward_credits,
-        completed_at
-      )
-    `)
-    .eq('user_id', user.id)
-    .eq('action', 'completed')
-    .order('created_at', { ascending: false })
+  // Fetch tasks that this user has successfully completed (where they are the claimer)
+  const { data: completedTasks } = await supabase
+    .from('tasks')
+    .select('id, title, category, difficulty, reward_credits, completed_at')
+    .eq('claimed_by', user.id)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
 
-  const records: ContributionRecord[] = (logs ?? []).map((log) => ({
-    id: log.id,
-    task_id: (log.tasks as any)?.id ?? '',
-    task_title: (log.tasks as any)?.title ?? 'Unknown Task',
-    category: (log.tasks as any)?.category ?? '',
-    difficulty: (log.tasks as any)?.difficulty ?? 'easy',
-    reward_credits: (log.tasks as any)?.reward_credits ?? 0,
-    completed_at: log.created_at,
-    cardano_tx_hash: log.cardano_tx_hash,
-  }))
+  const completedTaskIds = (completedTasks ?? []).map((t) => t.id)
+
+  // Fetch task logs to retrieve the cardano payout transaction hashes
+  let logs: { task_id: string; cardano_tx_hash: string | null }[] = []
+  if (completedTaskIds.length > 0) {
+    const { data: logData } = await supabase
+      .from('task_logs')
+      .select('task_id, cardano_tx_hash')
+      .in('task_id', completedTaskIds)
+      .eq('action', 'completed')
+    logs = logData ?? []
+  }
+
+  const records: ContributionRecord[] = (completedTasks ?? []).map((task) => {
+    const matchingLog = logs.find((l) => l.task_id === task.id)
+    return {
+      id: task.id,
+      task_id: task.id,
+      task_title: task.title,
+      category: task.category,
+      difficulty: task.difficulty,
+      reward_credits: task.reward_credits,
+      completed_at: task.completed_at || new Date().toISOString(),
+      cardano_tx_hash: matchingLog?.cardano_tx_hash ?? null,
+    }
+  })
 
   const stats: RecordStats = {
     completed: records.length,
@@ -92,8 +98,14 @@ export default async function RecordPage() {
       <div className="flex flex-col gap-8 lg:flex-row lg:gap-8 lg:items-start">
 
         {/* Left — contribution list */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col gap-4">
           <ContributionList records={records} />
+          <Link
+            href="/ledger"
+            className="text-sm text-primary underline underline-offset-2 self-start"
+          >
+            View the full public ledger
+          </Link>
         </div>
 
         {/* Right — profile card */}

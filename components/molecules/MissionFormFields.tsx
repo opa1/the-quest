@@ -62,6 +62,7 @@ export default function MissionFormFields({
 
     setDetectionState('detecting')
     setDetectionError(null)
+    setShowManualSelector(false)
 
     const result = await detectDifficulty(title, brief)
 
@@ -79,10 +80,6 @@ export default function MissionFormFields({
       runDetection()
     }
   }
-
-  const showDifficultySelector =
-    (detectionState === 'failed' && showManualSelector) ||
-    (detectionState === 'detected' && showManualSelector)
 
   const difficultyLabel = form.difficulty
     ? form.difficulty.charAt(0).toUpperCase() + form.difficulty.slice(1).toLowerCase()
@@ -208,22 +205,20 @@ export default function MissionFormFields({
         <FormFieldError message={fieldError('category')} />
       </div>
 
-      {/* Difficulty — only shown when manual selector is active or on idle (no detection run yet) */}
-      {(detectionState === 'idle' || showDifficultySelector) && (
+      {/* Difficulty — only shown when user explicitly requests it */}
+      {showManualSelector && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
               {cfg.difficultyLabel}
             </Label>
-            {showManualSelector && detectionState !== 'idle' && (
-              <button
-                type="button"
-                onClick={() => setShowManualSelector(false)}
-                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
-              >
-                Hide
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowManualSelector(false)}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+            >
+              Hide
+            </button>
           </div>
           <div className="grid grid-cols-3 gap-3">
             {difficulties.map((d) => (
