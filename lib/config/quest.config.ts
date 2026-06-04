@@ -599,4 +599,15 @@ export const QUEST_CONFIG = {
       },
     },
   } as const,
+  notifications: {
+    title: 'NOTIFICATIONS',
+    markAllRead: 'Mark all as read',
+    empty: 'No notifications yet',
+    footer: 'Showing last 30 notifications',
+    categories: {
+      mission: 'Mission',
+      reward: 'Reward',
+      system: 'System',
+    },
+  } as const,
 } as const

@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import ProofDisplay from '@/components/molecules/ProofDisplay'
 import ReviewSubmissionPanel from '@/components/molecules/ReviewSubmissionPanel'
 import { getTaskProofs } from '@/app/actions/submissions'
+import { markTaskNotificationsRead } from '@/app/actions/tasks'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 
 export const metadata = {
@@ -21,6 +22,8 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
+
+  await markTaskNotificationsRead(id)
 
   const { data: task } = await supabase
     .from('tasks')

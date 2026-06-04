@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { sendAdaPayoutViaService } from "@/lib/cardano/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createNotification } from "@/lib/utils/notify"
+import { formatAda } from "@/lib/utils/currency"
 
 export async function claimTask(taskId: string) {
   const supabase = await createClient()
@@ -15,7 +17,7 @@ export async function claimTask(taskId: string) {
 
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, status, created_by")
+    .select("id, title, status, created_by")
     .eq("id", taskId)
     .single()
 
@@ -61,6 +63,16 @@ export async function claimTask(taskId: string) {
   revalidatePath(`/tasks/${taskId}`)
   revalidatePath("/missions")
   revalidatePath("/realm")
+
+  await createNotification({
+    userId: task.created_by,
+    actorId: user.id,
+    type: 'mission_claimed',
+    category: 'mission',
+    title: 'Mission Claimed',
+    message: `Someone claimed your mission: "${task.title}"`,
+    actionUrl: `/tasks/${taskId}/review`,
+  })
 
   return { success: true }
 }
@@ -194,7 +206,7 @@ export async function submitWork(
 
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, status, claimed_by, proof_type")
+    .select("id, title, status, claimed_by, created_by, proof_type")
     .eq("id", taskId)
     .single()
 
@@ -259,6 +271,16 @@ export async function submitWork(
   revalidatePath("/missions")
   revalidatePath("/realm")
 
+  await createNotification({
+    userId: task.created_by,
+    actorId: user.id,
+    type: 'proof_submitted',
+    category: 'mission',
+    title: 'Proof Submitted',
+    message: `Someone submitted proof for your mission: "${task.title}"`,
+    actionUrl: `/tasks/${taskId}/review`,
+  })
+
   return { success: true }
 }
 
@@ -272,7 +294,7 @@ export async function approveWork(taskId: string) {
 
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, status, created_by, claimed_by, reward_credits, ada_reward")
+    .select("id, title, status, created_by, claimed_by, reward_credits, ada_reward")
     .eq("id", taskId)
     .single()
 
@@ -359,6 +381,19 @@ export async function approveWork(taskId: string) {
   revalidatePath("/leaderboard")
   revalidatePath("/record")
 
+  if (task.claimed_by) {
+    const adaText = task.ada_reward > 0 ? ` ${formatAda(task.ada_reward)} has been sent to your wallet.` : ''
+    await createNotification({
+      userId: task.claimed_by,
+      actorId: user.id,
+      type: 'submission_approved',
+      category: 'reward',
+      title: 'Submission Approved',
+      message: `Your proof for "${task.title}" was approved.${adaText}`,
+      actionUrl: `/tasks/${taskId}`,
+    })
+  }
+
   return { success: true }
 }
 
@@ -372,7 +407,7 @@ export async function rejectWork(taskId: string, reason?: string) {
 
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, status, created_by")
+    .select("id, title, status, created_by, claimed_by")
     .eq("id", taskId)
     .single()
 
@@ -415,6 +450,18 @@ export async function rejectWork(taskId: string, reason?: string) {
   revalidatePath("/missions")
   revalidatePath("/realm")
 
+  if (task.claimed_by) {
+    await createNotification({
+      userId: task.claimed_by,
+      actorId: user.id,
+      type: 'submission_rejected',
+      category: 'mission',
+      title: 'Submission Rejected',
+      message: `Your proof for "${task.title}" was rejected. Review the feedback and resubmit.`,
+      actionUrl: `/tasks/${taskId}/submit`,
+    })
+  }
+
   return { success: true }
 }
 
@@ -455,6 +502,22 @@ export async function banUser(
   revalidatePath(`/tasks/${taskId}/review`)
 
   return { success: true }
+}
+
+export async function markTaskNotificationsRead(taskId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  const adminClient = createAdminClient()
+  await adminClient
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', user.id)
+    .eq('action_url', `/tasks/${taskId}/review`)
+    .eq('read', false)
 }
 
 async function sendAdaPayout(

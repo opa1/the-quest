@@ -27,6 +27,7 @@ export default async function ProtectedLayout({
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <RealmHeader
+        userId={user.id}
         username={profile.username ?? ""}
         avatarUrl={profile.avatar_url ?? null}
         credits={profile.credits ?? 0}

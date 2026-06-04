@@ -16,7 +16,7 @@ export function QuestLogo({ className }: QuestLogoProps) {
         sizes="(max-width: 768px) 28px, (max-width: 1024px) 32px, 40px"
         className="size-7 shrink-0 object-contain md:size-8 lg:size-10"
       />
-      <span className="font-heading text-lg font-black tracking-widest text-primary uppercase md:text-xl lg:text-2xl">
+      <span className="logo-name font-heading text-lg font-black tracking-widest text-primary uppercase md:text-xl lg:text-2xl">
         THE QUEST
       </span>
     </span>
