@@ -4,7 +4,7 @@ import MissionsGrid from '@/components/molecules/MissionsGrid'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 
 export const metadata = {
-  title: 'Missions | The Quest',
+  title: 'Missions - The Quest',
   description: 'Browse all open missions on The Quest. Claim a bounty and start building your legacy.',
 }
 

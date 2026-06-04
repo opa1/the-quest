@@ -15,6 +15,7 @@ import DifficultyRadioOption from '@/components/atoms/DifficultyRadioOption'
 import FormFieldError from '@/components/atoms/FormFieldError'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 import { detectDifficulty } from '@/app/actions/detect-difficulty'
+import { randomXpForDifficulty } from '@/lib/utils/xp'
 import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { PostMissionForm, PostMissionError } from '@/lib/types/missions'
 
@@ -25,6 +26,7 @@ interface MissionFormFieldsProps {
   onDifficultyChange: (value: 'easy' | 'medium' | 'hard') => void
   onAdaRewardChange: (value: number) => void
   onProofTypeChange: (value: 'url' | 'text' | 'image' | 'any') => void
+  onXpChange: (xp: number) => void
 }
 
 type DetectionState = 'idle' | 'detecting' | 'detected' | 'failed'
@@ -47,10 +49,12 @@ export default function MissionFormFields({
   onDifficultyChange,
   onAdaRewardChange,
   onProofTypeChange,
+  onXpChange,
 }: MissionFormFieldsProps) {
   const [detectionState, setDetectionState] = useState<DetectionState>('idle')
   const [detectionError, setDetectionError] = useState<string | null>(null)
   const [showManualSelector, setShowManualSelector] = useState(false)
+  const [detectedXp, setDetectedXp] = useState<number | null>(null)
 
   const fieldError = (field: keyof PostMissionForm) =>
     error?.field === field ? error.message : null
@@ -63,12 +67,15 @@ export default function MissionFormFields({
     setDetectionState('detecting')
     setDetectionError(null)
     setShowManualSelector(false)
+    setDetectedXp(null)
 
     const result = await detectDifficulty(title, brief)
 
     if ('difficulty' in result) {
       setDetectionState('detected')
+      setDetectedXp(result.xp)
       onDifficultyChange(result.difficulty)
+      onXpChange(result.xp)
     } else {
       setDetectionState('failed')
       setDetectionError(result.message)
@@ -145,6 +152,9 @@ export default function MissionFormFields({
               <span className="font-bold uppercase tracking-widest text-primary">
                 {difficultyLabel}
               </span>
+              {detectedXp !== null && (
+                <span className="text-muted-foreground"> &middot; {detectedXp.toLocaleString()} XP</span>
+              )}
             </span>
             <button
               type="button"
@@ -226,10 +236,20 @@ export default function MissionFormFields({
                 key={d}
                 value={d}
                 isSelected={form.difficulty === d}
-                onClick={() => onDifficultyChange(d)}
+                onClick={() => {
+                  const xp = randomXpForDifficulty(d)
+                  setDetectedXp(xp)
+                  onXpChange(xp)
+                  onDifficultyChange(d)
+                }}
               />
             ))}
           </div>
+          {detectedXp !== null && (
+            <p className="text-xs text-muted-foreground">
+              {pmCfg.detectedXpLabel}: {detectedXp.toLocaleString()} XP
+            </p>
+          )}
           <FormFieldError message={fieldError('difficulty')} />
         </div>
       )}

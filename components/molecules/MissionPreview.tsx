@@ -4,9 +4,10 @@ import type { PostMissionForm } from '@/lib/types/missions'
 
 interface MissionPreviewProps {
   form: PostMissionForm
+  xp?: number
 }
 
-export default function MissionPreview({ form }: MissionPreviewProps) {
+export default function MissionPreview({ form, xp }: MissionPreviewProps) {
   const { previewTitle, previewSubtext } = QUEST_CONFIG.postMission
 
   const title = form.title.trim() || 'Your mission title will appear here'
@@ -29,7 +30,7 @@ export default function MissionPreview({ form }: MissionPreviewProps) {
         difficulty={difficulty}
         title={title}
         description={description}
-        xp={0}
+        xp={xp ?? 0}
         adaReward={adaReward}
         proofType={form.proof_type}
         featured={false}

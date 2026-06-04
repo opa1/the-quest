@@ -3,7 +3,7 @@ import PostMissionForm from "@/components/molecules/PostMissionForm"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 export const metadata = {
-  title: "Post a Mission | The Quest",
+  title: "Post a Mission - The Quest",
   description: "Deploy a new mission on The Quest.",
 }
 

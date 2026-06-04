@@ -8,7 +8,7 @@ import { getTaskProofs } from '@/app/actions/submissions'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 
 export const metadata = {
-  title: 'Review Submission | The Quest',
+  title: 'Review Submission - The Quest',
 }
 
 interface ReviewPageProps {

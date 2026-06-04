@@ -6,7 +6,7 @@ import { QUEST_CONFIG } from "@/lib/config/quest.config"
 import type { LeaderboardEntry } from "@/lib/types/missions"
 
 export const metadata = {
-  title: "Hall of Fame | The Quest",
+  title: "Hall of Fame - The Quest",
   description: "The top operatives on The Quest ranked by credits earned.",
 }
 

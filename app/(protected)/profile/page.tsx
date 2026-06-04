@@ -7,7 +7,7 @@ import LinkXBlock from '@/components/molecules/LinkXBlock'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 
 export const metadata = {
-  title: 'Profile | The Quest',
+  title: 'Profile - The Quest',
   description: 'Manage your Quest profile and wallet.',
 }
 

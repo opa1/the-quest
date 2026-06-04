@@ -17,6 +17,7 @@ import { NetworkType } from "@cardano-foundation/cardano-connect-with-wallet-cor
 import { createMission } from "@/app/actions/tasks"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 import { CARDANO_NETWORK } from "@/lib/config/cardano.config"
+import { randomXpForDifficulty } from "@/lib/utils/xp"
 import type {
   PostMissionForm as FormType,
   PostMissionError,
@@ -51,7 +52,10 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
   const [error, setError] = useState<PostMissionError>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [txState, setTxState] = useState<TxState>("idle")
+  const [detectedXp, setDetectedXp] = useState<number | null>(null)
   const { form: cfg } = QUEST_CONFIG.postMission
+
+  const onXpChange = (xp: number) => setDetectedXp(xp)
 
   const onChange = (field: keyof FormType, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -144,7 +148,11 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
       return
     }
 
-    const result = await createMission({ ...form, deposit_tx_hash: depositTxHash })
+    const result = await createMission({
+      ...form,
+      deposit_tx_hash: depositTxHash,
+      reward_credits: detectedXp ?? randomXpForDifficulty(form.difficulty),
+    })
     if ("error" in result && result.error) {
       const msg =
         "message" in result && result.message
@@ -220,6 +228,7 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
             onDifficultyChange={onDifficultyChange}
             onAdaRewardChange={onAdaRewardChange}
             onProofTypeChange={onProofTypeChange}
+            onXpChange={onXpChange}
           />
           <Separator />
           {error?.field === "submit" && (
@@ -230,7 +239,7 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
 
         {/* Right — sticky preview */}
         <div className="sticky top-24 self-start">
-          <MissionPreview form={form} />
+          <MissionPreview form={form} xp={detectedXp ?? undefined} />
         </div>
       </div>
 
@@ -261,6 +270,7 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
                 onDifficultyChange={onDifficultyChange}
                 onAdaRewardChange={onAdaRewardChange}
                 onProofTypeChange={onProofTypeChange}
+                onXpChange={onXpChange}
               />
               <Separator />
               {error?.field === "submit" && (
@@ -271,7 +281,7 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
           </TabsContent>
 
           <TabsContent value="preview">
-            <MissionPreview form={form} />
+            <MissionPreview form={form} xp={detectedXp ?? undefined} />
           </TabsContent>
         </Tabs>
       </div>

@@ -291,7 +291,6 @@ export const QUEST_CONFIG = {
     { label: "Missions", href: "/missions", icon: "Sword" },
     { label: "Post", href: "/post", icon: "Plus" },
     { label: "Record", href: "/record", icon: "ScrollText" },
-    { label: "Ledger", href: "/ledger", icon: "ScrollText" },
     { label: "Leaderboard", href: "/leaderboard", icon: "Trophy" },
   ] as const,
 
@@ -503,17 +502,14 @@ export const QUEST_CONFIG = {
     },
     difficultyCredits: {
       easy: {
-        credits: 400,
         label: "Easy",
         description: "Quick tasks, clear scope",
       },
       medium: {
-        credits: 1200,
         label: "Medium",
         description: "Moderate effort required",
       },
       hard: {
-        credits: 3000,
         label: "Hard",
         description: "Complex, high skill needed",
       },
@@ -531,6 +527,8 @@ export const QUEST_CONFIG = {
     tryAgainButton: "Try Again",
     selectManuallyLink: "Select manually",
     overrideLink: "Override",
+    detectedXpLabel: "XP Reward",
+    xpRange: "XP range: 500 to 10,000 based on mission complexity",
     noWalletError:
       "No Cardano wallet detected. Please install and connect a wallet.",
     walletRequired: {

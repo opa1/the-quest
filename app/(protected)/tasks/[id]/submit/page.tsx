@@ -7,7 +7,7 @@ import SubmitProofForm from "@/components/molecules/SubmitProofForm"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 export const metadata = {
-  title: "Submit Proof | The Quest",
+  title: "Submit Proof - The Quest",
 }
 
 interface SubmitPageProps {

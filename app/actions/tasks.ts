@@ -130,6 +130,7 @@ export async function createMission(formData: {
   description: string
   category: string
   difficulty: "easy" | "medium" | "hard"
+  reward_credits: number
   ada_reward?: number
   proof_type?: string
   deposit_tx_hash?: string
@@ -140,7 +141,9 @@ export async function createMission(formData: {
   } = await supabase.auth.getUser()
   if (!user) return { error: "not_authenticated" }
 
-  const creditMap = { easy: 400, medium: 1200, hard: 3000 }
+  if (formData.reward_credits < 500 || formData.reward_credits > 10000) {
+    return { error: "invalid_xp", message: "XP reward must be between 500 and 10,000." }
+  }
 
   const { data: task, error } = await supabase
     .from("tasks")
@@ -149,7 +152,7 @@ export async function createMission(formData: {
       description: formData.description.trim(),
       category: formData.category,
       difficulty: formData.difficulty,
-      reward_credits: creditMap[formData.difficulty],
+      reward_credits: formData.reward_credits,
       ada_reward: formData.ada_reward
         ? Math.round(formData.ada_reward * 1_000_000)
         : 0,
