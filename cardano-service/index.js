@@ -8,7 +8,7 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-const PORT = process.env.PORT ?? 3002
+const PORT = process.env.PORT ?? 3000
 const CARDANO_NETWORK = process.env.CARDANO_NETWORK ?? "Preprod"
 const BLOCKFROST_URL =
   CARDANO_NETWORK === "Mainnet"
