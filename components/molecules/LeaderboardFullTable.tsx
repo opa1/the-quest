@@ -36,14 +36,45 @@ export default function LeaderboardFullTable({
       .order('credits', { ascending: false })
       .range(from, to)
 
+    const profileIds = (data ?? []).map((p) => p.id)
+    const completedMap: Record<string, number> = {}
+    const proofMap: Record<string, number> = {}
+
+    if (profileIds.length > 0) {
+      const { data: completedTasks } = await supabase
+        .from('tasks')
+        .select('claimed_by')
+        .in('claimed_by', profileIds)
+        .eq('status', 'completed')
+
+      completedTasks?.forEach((t) => {
+        if (t.claimed_by) {
+          completedMap[t.claimed_by] = (completedMap[t.claimed_by] || 0) + 1
+        }
+      })
+
+      const { data: proofLogs } = await supabase
+        .from('task_logs')
+        .select('user_id')
+        .in('user_id', profileIds)
+        .eq('action', 'completed')
+        .not('cardano_tx_hash', 'is', null)
+
+      proofLogs?.forEach((l) => {
+        if (l.user_id) {
+          proofMap[l.user_id] = (proofMap[l.user_id] || 0) + 1
+        }
+      })
+    }
+
     const newEntries: LeaderboardEntry[] = (data ?? []).map((p, i) => ({
       rank: from + i + 1,
       id: p.id,
       username: p.username,
       avatar_url: p.avatar_url,
       credits: p.credits ?? 0,
-      completed: 0,
-      proofs: 0,
+      completed: completedMap[p.id] ?? 0,
+      proofs: proofMap[p.id] ?? 0,
       isCurrentUser: p.id === currentUserId,
     }))
 
