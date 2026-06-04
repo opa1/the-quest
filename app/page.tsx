@@ -1,5 +1,3 @@
-import { Suspense } from "react"
-import AuthDialogTrigger from "./_components/AuthDialogTrigger"
 import { ScrollToTop } from "@/components/atoms/ScrollToTop"
 import { Arsenal } from "@/components/sections/Arsenal"
 import { BountyBoard } from "@/components/sections/BountyBoard"

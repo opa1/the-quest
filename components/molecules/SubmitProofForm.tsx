@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Loader2, AlertCircle } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import { useAuthStore } from "@/lib/stores/auth.store"
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
+import { uploadProofImage } from "@/app/actions/upload"
 import { submitWork } from "@/app/actions/tasks"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
@@ -19,6 +18,7 @@ interface SubmitProofFormProps {
 }
 
 const cfg = QUEST_CONFIG.submitProof
+const MAX_MB = parseFloat(process.env.NEXT_PUBLIC_MAX_PROOF_IMAGE_SIZE_MB ?? "5")
 
 export default function SubmitProofForm({
   taskId,
@@ -26,7 +26,6 @@ export default function SubmitProofForm({
   redirectTo,
 }: SubmitProofFormProps) {
   const router = useRouter()
-  const { user } = useAuthStore()
   const [urls, setUrls] = useState<string[]>([""])
   const [notes, setNotes] = useState("")
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -34,6 +33,7 @@ export default function SubmitProofForm({
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
 
   const showUrls = proofType === "url" || proofType === "any"
   const showText = proofType === "text" || proofType === "any"
@@ -47,33 +47,27 @@ export default function SubmitProofForm({
     if (urls.length < 3) setUrls((prev) => [...prev, ""])
   }
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !user) return
+    if (!file) return
+
+    setImageError(null)
+    setImageUrl(null)
+
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setImageError(cfg.imageTooLarge)
+      e.target.value = ""
+      return
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    if (!allowedTypes.includes(file.type)) {
+      setImageError(cfg.imageInvalidType)
+      e.target.value = ""
+      return
+    }
 
     setImageFile(file)
-    setIsUploading(true)
-    setError(null)
-
-    try {
-      const supabase = createClient()
-      const path = `${taskId}/${user.id}/${Date.now()}_${file.name}`
-      const { error: uploadError } = await supabase.storage
-        .from("task-proofs")
-        .upload(path, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("task-proofs").getPublicUrl(path)
-
-      setImageUrl(publicUrl)
-    } catch {
-      setError("Image upload failed. Please try again.")
-    } finally {
-      setIsUploading(false)
-    }
   }
 
   const handleSubmit = async () => {
@@ -89,7 +83,7 @@ export default function SubmitProofForm({
       setError("Notes must be at least 20 characters.")
       return
     }
-    if (proofType === "image" && !imageUrl) {
+    if (proofType === "image" && !imageFile && !imageUrl) {
       setError("Please upload an image.")
       return
     }
@@ -97,10 +91,29 @@ export default function SubmitProofForm({
       proofType === "any" &&
       validUrls.length === 0 &&
       notes.trim().length < 20 &&
+      !imageFile &&
       !imageUrl
     ) {
       setError("Please provide at least one form of proof.")
       return
+    }
+
+    let finalImageUrl = imageUrl
+
+    if (imageFile && !imageUrl) {
+      setIsUploading(true)
+      const fd = new FormData()
+      fd.append("file", imageFile)
+      const result = await uploadProofImage(fd)
+      setIsUploading(false)
+
+      if ("error" in result) {
+        setImageError(result.message)
+        if (proofType === "image") return
+      } else {
+        finalImageUrl = result.url
+        setImageUrl(result.url)
+      }
     }
 
     setIsSubmitting(true)
@@ -108,7 +121,7 @@ export default function SubmitProofForm({
     const result = await submitWork(taskId, {
       urls: validUrls.length > 0 ? validUrls : undefined,
       notes: notes.trim() || undefined,
-      imageUrl: imageUrl ?? undefined,
+      imageUrl: finalImageUrl ?? undefined,
     })
 
     if (result.error) {
@@ -119,6 +132,10 @@ export default function SubmitProofForm({
 
     router.push(redirectTo)
   }
+
+  const sizeLabel = imageFile
+    ? `${(imageFile.size / (1024 * 1024)).toFixed(2)} MB`
+    : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -176,20 +193,28 @@ export default function SubmitProofForm({
           </Label>
           <Input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={handleImageChange}
             disabled={isUploading}
             className="border-border/50 bg-muted/30 text-sm file:border-0 file:bg-transparent file:text-xs file:font-bold file:tracking-widest file:text-muted-foreground file:uppercase focus:border-primary"
           />
+          {imageFile && !imageError && !imageUrl && !isUploading && (
+            <p className="text-xs text-muted-foreground">
+              {cfg.imageSelected}: {imageFile.name} ({sizeLabel})
+            </p>
+          )}
           {isUploading && (
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Uploading image...
+              <Loader2 className="h-3 w-3 animate-spin" /> {cfg.imageUploading}
             </p>
           )}
           {imageUrl && !isUploading && (
-            <p className="text-xs text-green-400">
-              Image uploaded successfully.
+            <p className="flex items-center gap-1 text-xs text-green-400">
+              <CheckCircle2 className="h-3 w-3" /> Image uploaded successfully.
             </p>
+          )}
+          {imageError && (
+            <p className="text-xs text-destructive">{imageError}</p>
           )}
         </div>
       )}

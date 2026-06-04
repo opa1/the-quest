@@ -1,4 +1,5 @@
 import { BicepsFlexed, Flame, Zap } from "lucide-react"
+import { ADA_LABEL } from '@/lib/utils/currency'
 
 export const QUEST_CONFIG = {
   stats: {
@@ -509,9 +510,9 @@ export const QUEST_CONFIG = {
       descriptionMaxLength: 1000,
       categoryLabel: "CATEGORY",
       difficultyLabel: "DIFFICULTY",
-      adaRewardLabel: "ADA REWARD",
+      adaRewardLabel: `${ADA_LABEL} REWARD`,
       adaRewardPlaceholder: "0",
-      adaRewardHelper: "Amount in ADA the claimer will receive on approval",
+      adaRewardHelper: `Amount in ${ADA_LABEL} the claimer will receive on approval`,
       proofTypeLabel: "PROOF REQUIRED",
       submitLabel: "DEPLOY MISSION",
       submittingLabel: "DEPLOYING...",
@@ -538,7 +539,14 @@ export const QUEST_CONFIG = {
     previewTitle: "MISSION PREVIEW",
     previewSubtext: "This is how your mission will appear on the Bounty Board.",
     processingPaymentLabel: "PROCESSING PAYMENT...",
-    adaRequiredError: "ADA reward is required. Minimum is 2 ADA.",
+    adaRequiredError: `${ADA_LABEL} reward is required. Minimum is 2 ${ADA_LABEL}.`,
+    detectingDifficulty: "Detecting difficulty...",
+    difficultyDetected: "Difficulty detected",
+    difficultyDetectFailed: "Could not detect difficulty. Please select manually.",
+    redetectButton: "Re-detect",
+    tryAgainButton: "Try Again",
+    selectManuallyLink: "Select manually",
+    overrideLink: "Override",
     noWalletError:
       "No Cardano wallet detected. Please install and connect a wallet.",
     walletRequired: {
@@ -560,6 +568,10 @@ export const QUEST_CONFIG = {
     submittingButton: "SUBMITTING...",
     successMessage: "Proof submitted successfully.",
     backLink: "Back to Mission",
+    imageUploading: "Uploading image...",
+    imageTooLarge: `Image must be under ${process.env.NEXT_PUBLIC_MAX_PROOF_IMAGE_SIZE_MB ?? 5}MB.`,
+    imageInvalidType: "Only JPEG, PNG, WEBP, and GIF images are allowed.",
+    imageSelected: "Image selected",
   } as const,
   reviewPanel: {
     title: "REVIEW SUBMISSION",

@@ -76,8 +76,8 @@ export function BountyCard({
         <div className="flex flex-col gap-2">
           <div className="flex items-end justify-between">
             <div className="flex flex-col gap-1">
-              {xp > 0 && <XPReward xp={xp} />}
               {adaReward !== undefined && <AdaReward lovelace={adaReward} />}
+              {xp > 0 && <XPReward xp={xp} />}
             </div>
           </div>
 
