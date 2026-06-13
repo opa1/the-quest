@@ -54,7 +54,7 @@ export default function TaskActionPanel({
   claimer,
   poster,
 }: TaskActionPanelProps) {
-  const { user } = useAuthStore()
+  const { user, openDialog } = useAuthStore()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +65,7 @@ export default function TaskActionPanel({
 
   const isCreator = mounted ? user?.id === createdById : false
   const isClaimer = mounted ? user?.id === claimedById : false
+  const isGuest = mounted && !user
 
   const handleClaim = async () => {
     setIsLoading(true)
@@ -107,8 +108,22 @@ export default function TaskActionPanel({
 
         <Separator />
 
+        {/* OPEN — guest must sign in to claim */}
+        {status === "open" && isGuest && (
+          <Button
+            variant="default"
+            size="lg"
+            className="w-full"
+            onClick={() => openDialog(`/tasks/${taskId}`)}
+          >
+            <span className="text-sm font-bold tracking-widest uppercase">
+              Sign in to claim
+            </span>
+          </Button>
+        )}
+
         {/* OPEN — not creator */}
-        {status === "open" && !isCreator && (
+        {status === "open" && !isCreator && !isGuest && (
           <>
             {claimed ? (
               <div className="flex flex-col items-center gap-3 py-2">

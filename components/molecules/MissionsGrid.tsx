@@ -52,6 +52,7 @@ export default function MissionsGrid({ currentUserId }: MissionsGridProps) {
             createdBy={mission.created_by}
             currentUserId={currentUserId}
             featured={false}
+            shareable
           />
         ))}
       </div>

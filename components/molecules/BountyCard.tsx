@@ -7,6 +7,7 @@ import { DifficultyBadge } from "@/components/atoms/DifficultyBadge"
 import { XPReward } from "@/components/atoms/XPReward"
 import { AdaReward } from "@/components/atoms/AdaReward"
 import ProofTypeBadge from "@/components/atoms/ProofTypeBadge"
+import ShareMissionButton from "@/components/molecules/ShareMissionButton"
 import { cn } from "@/lib/utils"
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD"
@@ -25,6 +26,7 @@ interface BountyCardProps {
   taskStatus?: string
   adaReward?: number
   proofType?: "url" | "text" | "image" | "any"
+  shareable?: boolean
 }
 
 export function BountyCard({
@@ -41,6 +43,7 @@ export function BountyCard({
   taskStatus,
   adaReward,
   proofType,
+  shareable,
 }: BountyCardProps) {
   const isReviewable =
     taskStatus === "submitted" && currentUserId && currentUserId === createdBy
@@ -74,11 +77,12 @@ export function BountyCard({
         <Separator className="my-1 bg-border/50" />
 
         <div className="flex flex-col gap-2">
-          <div className="flex items-end justify-between">
+          <div className="flex items-end justify-between gap-2">
             <div className="flex flex-col gap-1">
               {adaReward !== undefined && <AdaReward lovelace={adaReward} />}
               {xp > 0 && <XPReward xp={xp} />}
             </div>
+            {shareable && <ShareMissionButton taskId={id} title={title} />}
           </div>
 
           {isReviewable && (

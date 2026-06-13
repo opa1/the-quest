@@ -10,7 +10,13 @@
       "Bash(pnpm add *)",
       "PowerShell(pnpm dlx *)",
       "Bash(git add *)",
-      "Bash(pnpm run *)"
+      "Bash(pnpm run *)",
+      "PowerShell(pnpm typecheck *)",
+      "Bash(curl -s \"http://localhost:3000/ledger\" -o /tmp/ledger.html -w \"status=%{http_code}\\\\n\")",
+      "Read(//tmp/**)",
+      "Bash(rm -f /tmp/dev2.log)",
+      "Bash(NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm dev)",
+      "Bash(curl -s -o /tmp/m2.html -w 'status=%{http_code}\\\\n' http://localhost:3000/tasks/__TRACKED_VAR__)"
     ]
   }
 }

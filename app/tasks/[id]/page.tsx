@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { CategoryBadge } from "@/components/atoms/CategoryBadge"
@@ -8,6 +8,7 @@ import TaskStatusBadge from "@/components/atoms/TaskStatusBadge"
 import TimeAgo from "@/components/atoms/TimeAgo"
 import UserAvatar from "@/components/atoms/UserAvatar"
 import TaskActionPanel from "@/components/molecules/TaskActionPanel"
+import ShareMissionButton from "@/components/molecules/ShareMissionButton"
 import { unstable_noStore as noStore } from "next/cache"
 
 interface TaskDetailPageProps {
@@ -22,7 +23,6 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect("/")
 
   const { data: task } = await supabase
     .from("tasks")
@@ -59,14 +59,17 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Back link */}
-      <Link
-        href="/missions"
-        className="flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Missions
-      </Link>
+      {/* Back link + share */}
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href={user ? "/missions" : "/"}
+          className="flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {user ? "Back to Missions" : "Back to The Quest"}
+        </Link>
+        <ShareMissionButton taskId={task.id} title={task.title} />
+      </div>
 
       {/* Two column layout */}
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
