@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import DifficultyRadioOption from '@/components/atoms/DifficultyRadioOption'
 import FormFieldError from '@/components/atoms/FormFieldError'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
@@ -200,18 +201,16 @@ export default function MissionFormFields({
         <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
           {cfg.categoryLabel}
         </Label>
-        <Select value={form.category} onValueChange={(v) => onChange('category', v)}>
-          <SelectTrigger className="bg-muted/30 border-border/50 focus:border-primary">
-            <SelectValue placeholder="Select a category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.value} value={cat.value} className="text-xs uppercase tracking-widest">
-                {cat.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          options={categories as unknown as { label: string; value: string }[]}
+          value={form.category}
+          onValueChange={(v) => onChange('category', v)}
+          placeholder="Select a category"
+          searchPlaceholder="Search categories…"
+          emptyText="No matching category."
+          triggerClassName="bg-muted/30 border-border/50 focus-visible:border-primary text-xs uppercase tracking-widest"
+          itemClassName="text-xs uppercase tracking-widest"
+        />
         <FormFieldError message={fieldError('category')} />
       </div>
 
