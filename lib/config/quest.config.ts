@@ -431,6 +431,7 @@ export const QUEST_CONFIG = {
       { label: "Animation", value: "ANIMATION" },
       { label: "Photography", value: "PHOTOGRAPHY" },
       { label: "Translation", value: "TRANSLATION" },
+      { label: "Trading", value: "TRADING" },
       { label: "Community", value: "COMMUNITY" },
       { label: "Moderation", value: "MODERATION" },
       { label: "Social Media", value: "SOCIAL" },
