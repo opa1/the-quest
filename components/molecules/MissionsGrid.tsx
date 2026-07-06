@@ -48,6 +48,7 @@ export default function MissionsGrid({ currentUserId }: MissionsGridProps) {
             xp={mission.reward_credits}
             adaReward={mission.ada_reward}
             maxClaimers={mission.max_claimers}
+            approvedClaimers={mission.approved_claimers}
             rewardPerClaimer={mission.reward_per_claimer}
             deadline={mission.deadline}
             proofType={mission.proof_type}

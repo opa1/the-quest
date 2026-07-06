@@ -8,6 +8,7 @@ import { XPReward } from "@/components/atoms/XPReward"
 import { AdaReward } from "@/components/atoms/AdaReward"
 import ProofTypeBadge from "@/components/atoms/ProofTypeBadge"
 import ShareMissionButton from "@/components/molecules/ShareMissionButton"
+import { Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD"
@@ -105,16 +106,6 @@ export function BountyCard({
         <Separator className="my-1 bg-border/50" />
 
         <div className="flex flex-col gap-2">
-          {(isMulti && approvedClaimers !== undefined) || deadlineLabel ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {isMulti && approvedClaimers !== undefined && (
-                <span>
-                  {approvedClaimers} of {maxClaimers} slots filled
-                </span>
-              )}
-              {deadlineLabel && <span>Deadline: {deadlineLabel}</span>}
-            </div>
-          ) : null}
           <div className="flex items-end justify-between gap-2">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
@@ -133,6 +124,31 @@ export function BountyCard({
             </div>
             {shareable && <ShareMissionButton taskId={id} title={title} />}
           </div>
+
+          {maxClaimers && maxClaimers > 1 && (
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {approvedClaimers ?? 0} of {maxClaimers} slots filled
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.min(100, ((approvedClaimers ?? 0) / maxClaimers) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {deadlineLabel && (
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary bg-primary/10 rounded-full px-2.5 py-1 w-fit">
+              <Clock className="w-3 h-3" />
+              {deadlineLabel}
+            </div>
+          )}
 
           {isReviewable && (
             <Button

@@ -449,11 +449,13 @@ export async function submitWork(
     })
     .eq("id", claim.id)
 
-  if (claimError)
+  if (claimError) {
+    console.error('[submitWork] task_claims update failed:', claimError)
     return {
       error: "update_failed",
-      message: "Something went wrong. Please try again.",
+      message: `Failed to submit proof: ${claimError.message}`,
     }
+  }
 
   // Proof URLs stay in task_proofs, scoped per-operative by submitted_by.
   if (data.urls && data.urls.length > 0) {

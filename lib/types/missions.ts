@@ -103,6 +103,7 @@ export interface Mission {
   ada_reward?: number
   max_claimers?: number
   reward_per_claimer?: number
+  approved_claimers?: number
   deadline?: string | null
   proof_type?: 'url' | 'text' | 'image' | 'any'
   proof_notes?: string | null

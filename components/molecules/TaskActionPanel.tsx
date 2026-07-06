@@ -165,20 +165,45 @@ export default function TaskActionPanel({
 
         {/* Slot progress for multi-claimer missions */}
         {isMulti && (
-          <div className="text-center text-xs text-muted-foreground">
-            {approvedClaimers ?? 0} of {maxClaimers} slots filled
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+                Slots
+              </span>
+              <span className="text-xs font-bold text-foreground">
+                {approvedClaimers ?? 0} of {maxClaimers} filled
+              </span>
+            </div>
+            <div className="w-full h-2 bg-muted/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(100, ((approvedClaimers ?? 0) / maxClaimers) * 100)}%`,
+                }}
+              />
+            </div>
           </div>
         )}
 
         {/* Deadline shown while the mission is still open */}
         {deadline && status === "open" && (
-          <div className="text-center text-xs text-muted-foreground">
-            Deadline:{" "}
-            {new Date(deadline).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
+          <div className="flex items-center gap-2 rounded-[10px] border border-primary/40 bg-primary/5 px-3 py-2">
+            <Clock className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-widest text-primary font-semibold">
+                Mission Deadline
+              </span>
+              <span className="text-xs font-semibold text-foreground">
+                {new Date(deadline).toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
           </div>
         )}
 

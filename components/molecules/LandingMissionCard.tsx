@@ -8,6 +8,7 @@ import { CategoryBadge } from '@/components/atoms/CategoryBadge'
 import { DifficultyBadge } from '@/components/atoms/DifficultyBadge'
 import { AdaReward } from '@/components/atoms/AdaReward'
 import { XPReward } from '@/components/atoms/XPReward'
+import { Clock } from 'lucide-react'
 import type { LandingMission } from '@/lib/stores/landing.store'
 
 interface LandingMissionCardProps {
@@ -37,6 +38,35 @@ export function LandingMissionCard({ mission }: LandingMissionCardProps) {
           {mission.ada_reward > 0 && <AdaReward lovelace={mission.ada_reward} />}
           {mission.reward_credits > 0 && <XPReward xp={mission.reward_credits} />}
         </div>
+
+        {(mission.max_claimers ?? 1) > 1 && (
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                {mission.approved_claimers ?? 0} of {mission.max_claimers} slots filled
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-muted/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, ((mission.approved_claimers ?? 0) / (mission.max_claimers ?? 1)) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {mission.deadline && (
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary bg-primary/10 rounded-full px-2.5 py-1 w-fit">
+            <Clock className="w-3 h-3" />
+            {new Date(mission.deadline).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </div>
+        )}
 
         <Button
           variant="outline"
