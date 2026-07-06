@@ -22,6 +22,7 @@ import { QUEST_CONFIG } from '@/lib/config/quest.config'
 
 interface ReviewSubmissionPanelProps {
   taskId: string
+  claimId: string
   claimerId: string
   claimer: { username: string | null; avatar_url: string | null }
   redirectTo: string
@@ -30,7 +31,7 @@ interface ReviewSubmissionPanelProps {
 const cfg = QUEST_CONFIG.reviewPanel
 
 export default function ReviewSubmissionPanel({
-  taskId, claimerId, claimer, redirectTo,
+  taskId, claimId, claimerId, claimer, redirectTo,
 }: ReviewSubmissionPanelProps) {
   const router = useRouter()
   const [rejectOpen, setRejectOpen] = useState(false)
@@ -45,7 +46,7 @@ export default function ReviewSubmissionPanel({
   const handleApprove = async () => {
     setIsApproving(true)
     setError(null)
-    const result = await approveWork(taskId)
+    const result = await approveWork(taskId, claimId)
     if (result.error) {
       setError(result.message ?? 'Something went wrong.')
       setIsApproving(false)
@@ -57,7 +58,7 @@ export default function ReviewSubmissionPanel({
   const handleReject = async () => {
     setIsRejecting(true)
     setError(null)
-    const result = await rejectWork(taskId, rejectReason.trim() || undefined)
+    const result = await rejectWork(taskId, claimId, rejectReason.trim() || undefined)
     if (result.error) {
       setError(result.message ?? 'Something went wrong.')
       setIsRejecting(false)

@@ -7,6 +7,46 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/utils/notify"
 import { formatAda } from "@/lib/utils/currency"
 
+// Claim rows that still occupy a slot on the mission. A "rejected" claim frees
+// its slot so the poster (or another operative) can take it again.
+const ACTIVE_CLAIM_STATUSES = ["claimed", "submitted", "approved"] as const
+
+type AdminClient = ReturnType<typeof createAdminClient>
+
+// Recompute a multi-claimer task's status from its claim rows.
+// Single-claimer (max_claimers === 1) tasks keep the legacy explicit
+// transitions (open -> claimed -> submitted -> completed) and never call this.
+async function recomputeMultiTaskState(
+  admin: AdminClient,
+  taskId: string,
+  maxClaimers: number
+) {
+  const { data: claims } = await admin
+    .from("task_claims")
+    .select("status")
+    .eq("task_id", taskId)
+
+  const rows = claims ?? []
+  const active = rows.filter((c) =>
+    (ACTIVE_CLAIM_STATUSES as readonly string[]).includes(c.status)
+  ).length
+  const approved = rows.filter((c) => c.status === "approved").length
+
+  const now = new Date().toISOString()
+  const update: Record<string, unknown> = { updated_at: now }
+
+  if (approved >= maxClaimers) {
+    update.status = "completed"
+    update.completed_at = now
+  } else if (active >= maxClaimers) {
+    update.status = "claimed"
+  } else {
+    update.status = "open"
+  }
+
+  await admin.from("tasks").update(update).eq("id", taskId)
+}
+
 export async function claimTask(taskId: string) {
   const supabase = await createClient()
   const {
@@ -15,9 +55,11 @@ export async function claimTask(taskId: string) {
 
   if (!user) return { error: "not_authenticated" }
 
-  const { data: task } = await supabase
+  const admin = createAdminClient()
+
+  const { data: task } = await admin
     .from("tasks")
-    .select("id, title, status, created_by")
+    .select("id, title, status, created_by, max_claimers")
     .eq("id", taskId)
     .single()
 
@@ -26,35 +68,123 @@ export async function claimTask(taskId: string) {
       error: "task_not_found",
       message: "This mission no longer exists.",
     }
-  if (task.status !== "open")
-    return {
-      error: "task_not_open",
-      message: "This mission has already been claimed by someone else.",
-    }
   if (task.created_by === user.id)
     return {
       error: "cannot_claim_own_task",
       message: "You cannot claim a mission you posted.",
     }
 
-  const { error: updateError } = await supabase
-    .from("tasks")
-    .update({
-      status: "claimed",
-      claimed_by: user.id,
-      claimed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", taskId)
+  const maxClaimers = task.max_claimers ?? 1
 
-  if (updateError)
+  // Ban gate - a poster can bar an operative from a mission.
+  const { data: ban } = await admin
+    .from("task_bans")
+    .select("id")
+    .eq("task_id", taskId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (ban)
     return {
-      error: "claim_failed",
-      message:
-        "Something went wrong while claiming this mission. Please try again.",
+      error: "banned",
+      message: "You are not permitted to claim this mission.",
     }
 
-  await supabase.from("task_logs").insert({
+  // One claim row per (task, user) - the table's unique constraint enforces it.
+  const { data: existingClaim } = await admin
+    .from("task_claims")
+    .select("id, status")
+    .eq("task_id", taskId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (existingClaim && existingClaim.status !== "rejected")
+    return {
+      error: "already_claimed",
+      message: "You have already claimed this mission.",
+    }
+
+  // Slot check - count claims that still occupy a slot.
+  const { data: claims } = await admin
+    .from("task_claims")
+    .select("status")
+    .eq("task_id", taskId)
+
+  const activeCount = (claims ?? []).filter((c) =>
+    (ACTIVE_CLAIM_STATUSES as readonly string[]).includes(c.status)
+  ).length
+
+  if (activeCount >= maxClaimers)
+    return {
+      error: "task_full",
+      message: "All slots for this mission have already been filled.",
+    }
+
+  const now = new Date().toISOString()
+
+  if (existingClaim) {
+    // Re-claiming after a rejection: reset the existing row rather than insert
+    // (the unique constraint forbids a second row).
+    const { error: claimError } = await admin
+      .from("task_claims")
+      .update({
+        status: "claimed",
+        claimed_at: now,
+        submitted_at: null,
+        completed_at: null,
+        proof_notes: null,
+        proof_image_url: null,
+        rejection_reason: null,
+        cardano_tx_hash: null,
+      })
+      .eq("id", existingClaim.id)
+
+    if (claimError)
+      return {
+        error: "claim_failed",
+        message:
+          "Something went wrong while claiming this mission. Please try again.",
+      }
+  } else {
+    const { error: claimError } = await admin.from("task_claims").insert({
+      task_id: taskId,
+      user_id: user.id,
+      status: "claimed",
+      claimed_at: now,
+    })
+
+    if (claimError)
+      return {
+        error: "claim_failed",
+        message:
+          "Something went wrong while claiming this mission. Please try again.",
+      }
+  }
+
+  // Keep tasks.claimed_by in sync for single-claimer missions (backward compat
+  // with the record/leaderboard queries). Multi-claimer tasks recompute status.
+  if (maxClaimers === 1) {
+    await admin
+      .from("tasks")
+      .update({
+        status: "claimed",
+        claimed_by: user.id,
+        claimed_at: now,
+        updated_at: now,
+      })
+      .eq("id", taskId)
+  } else {
+    const newActive = activeCount + 1
+    await admin
+      .from("tasks")
+      .update({
+        status: newActive >= maxClaimers ? "claimed" : "open",
+        updated_at: now,
+      })
+      .eq("id", taskId)
+  }
+
+  await admin.from("task_logs").insert({
     task_id: taskId,
     user_id: user.id,
     action: "claimed",
@@ -67,9 +197,9 @@ export async function claimTask(taskId: string) {
   await createNotification({
     userId: task.created_by,
     actorId: user.id,
-    type: 'mission_claimed',
-    category: 'mission',
-    title: 'Mission Claimed',
+    type: "mission_claimed",
+    category: "mission",
+    title: "Mission Claimed",
     message: `Someone claimed your mission: "${task.title}"`,
     actionUrl: `/tasks/${taskId}/review`,
   })
@@ -85,9 +215,11 @@ export async function dropTask(taskId: string) {
 
   if (!user) return { error: "not_authenticated" }
 
-  const { data: task } = await supabase
+  const admin = createAdminClient()
+
+  const { data: task } = await admin
     .from("tasks")
-    .select("id, status, claimed_by")
+    .select("id, max_claimers")
     .eq("id", taskId)
     .single()
 
@@ -96,35 +228,51 @@ export async function dropTask(taskId: string) {
       error: "task_not_found",
       message: "This mission no longer exists.",
     }
-  if (task.claimed_by !== user.id)
+
+  const maxClaimers = task.max_claimers ?? 1
+
+  const { data: claim } = await admin
+    .from("task_claims")
+    .select("id, status")
+    .eq("task_id", taskId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!claim || claim.status !== "claimed")
     return {
       error: "not_claimer",
-      message: "You have not claimed this mission.",
-    }
-  if (task.status !== "claimed")
-    return {
-      error: "task_not_claimed",
-      message: "This mission is not currently claimed.",
+      message: "You do not have an active claim on this mission.",
     }
 
-  const { error: updateError } = await supabase
-    .from("tasks")
-    .update({
-      status: "open",
-      claimed_by: null,
-      claimed_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", taskId)
+  const { error: deleteError } = await admin
+    .from("task_claims")
+    .delete()
+    .eq("id", claim.id)
 
-  if (updateError)
+  if (deleteError)
     return {
       error: "drop_failed",
       message:
         "Something went wrong while dropping this mission. Please try again.",
     }
 
-  await supabase.from("task_logs").insert({
+  const now = new Date().toISOString()
+
+  if (maxClaimers === 1) {
+    await admin
+      .from("tasks")
+      .update({
+        status: "open",
+        claimed_by: null,
+        claimed_at: null,
+        updated_at: now,
+      })
+      .eq("id", taskId)
+  } else {
+    await recomputeMultiTaskState(admin, taskId, maxClaimers)
+  }
+
+  await admin.from("task_logs").insert({
     task_id: taskId,
     user_id: user.id,
     action: "cancelled",
@@ -146,6 +294,9 @@ export async function createMission(formData: {
   ada_reward?: number
   proof_type?: string
   deposit_tx_hash?: string
+  max_claimers?: number
+  reward_per_claimer?: number
+  deadline?: string | null
 }) {
   const supabase = await createClient()
   const {
@@ -154,7 +305,43 @@ export async function createMission(formData: {
   if (!user) return { error: "not_authenticated" }
 
   if (formData.reward_credits < 500 || formData.reward_credits > 10000) {
-    return { error: "invalid_xp", message: "XP reward must be between 500 and 10,000." }
+    return {
+      error: "invalid_xp",
+      message: "XP reward must be between 500 and 10,000.",
+    }
+  }
+
+  const maxClaimers = formData.max_claimers ?? 1
+  if (maxClaimers < 1 || maxClaimers > 100) {
+    return {
+      error: "invalid_slots",
+      message: "Slot count must be between 1 and 100.",
+    }
+  }
+  if (maxClaimers > 1) {
+    const rewardPerClaimer = formData.reward_per_claimer ?? 0
+    if (rewardPerClaimer < 5_000_000) {
+      return {
+        error: "min_reward",
+        message: "Minimum reward per person is 5 ADA.",
+      }
+    }
+  }
+  if (formData.deadline) {
+    const deadline = new Date(formData.deadline)
+    const now = new Date()
+    if (deadline < new Date(now.getTime() + 24 * 60 * 60 * 1000)) {
+      return {
+        error: "deadline_too_soon",
+        message: "Deadline must be at least 24 hours from now.",
+      }
+    }
+    if (deadline > new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)) {
+      return {
+        error: "deadline_too_far",
+        message: "Deadline cannot be more than 3 months from now.",
+      }
+    }
   }
 
   const { data: task, error } = await supabase
@@ -170,6 +357,9 @@ export async function createMission(formData: {
         : 0,
       proof_type: formData.proof_type ?? "any",
       deposit_tx_hash: formData.deposit_tx_hash ?? null,
+      max_claimers: maxClaimers,
+      reward_per_claimer: formData.reward_per_claimer ?? 0,
+      deadline: formData.deadline ?? null,
       status: "open",
       created_by: user.id,
     })
@@ -204,25 +394,37 @@ export async function submitWork(
   if (!user)
     return { error: "not_authenticated", message: "You must be signed in." }
 
-  const { data: task } = await supabase
+  const admin = createAdminClient()
+
+  const { data: task } = await admin
     .from("tasks")
-    .select("id, title, status, claimed_by, created_by, proof_type")
+    .select("id, title, created_by, max_claimers")
     .eq("id", taskId)
     .single()
 
   if (!task) return { error: "not_found", message: "Mission not found." }
-  if (task.claimed_by !== user.id)
+
+  const maxClaimers = task.max_claimers ?? 1
+
+  const { data: claim } = await admin
+    .from("task_claims")
+    .select("id, status")
+    .eq("task_id", taskId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!claim)
     return {
       error: "not_claimer",
       message: "You have not claimed this mission.",
     }
-  if (task.status !== "claimed")
+  if (claim.status !== "claimed")
     return {
       error: "invalid_status",
-      message: "This mission cannot accept a submission right now.",
+      message: "This claim cannot accept a submission right now.",
     }
 
-  const { data: ban } = await supabase
+  const { data: ban } = await admin
     .from("task_bans")
     .select("id")
     .eq("task_id", taskId)
@@ -235,33 +437,54 @@ export async function submitWork(
       message: "You are not permitted to submit to this mission.",
     }
 
-  const { error: updateError } = await supabase
-    .from("tasks")
+  const now = new Date().toISOString()
+
+  const { error: claimError } = await admin
+    .from("task_claims")
     .update({
       status: "submitted",
       proof_notes: data.notes ?? null,
       proof_image_url: data.imageUrl ?? null,
-      updated_at: new Date().toISOString(),
+      submitted_at: now,
     })
-    .eq("id", taskId)
+    .eq("id", claim.id)
 
-  if (updateError)
+  if (claimError)
     return {
       error: "update_failed",
       message: "Something went wrong. Please try again.",
     }
 
+  // Proof URLs stay in task_proofs, scoped per-operative by submitted_by.
   if (data.urls && data.urls.length > 0) {
-    await supabase.from("task_proofs").delete().eq("task_id", taskId)
+    await admin
+      .from("task_proofs")
+      .delete()
+      .eq("task_id", taskId)
+      .eq("submitted_by", user.id)
     const rows = data.urls.slice(0, 3).map((url) => ({
       task_id: taskId,
       submitted_by: user.id,
       url,
     }))
-    await supabase.from("task_proofs").insert(rows)
+    await admin.from("task_proofs").insert(rows)
   }
 
-  await supabase.from("task_logs").insert({
+  // Mirror onto the task row for single-claimer missions so the legacy
+  // task-level proof reads keep working.
+  if (maxClaimers === 1) {
+    await admin
+      .from("tasks")
+      .update({
+        status: "submitted",
+        proof_notes: data.notes ?? null,
+        proof_image_url: data.imageUrl ?? null,
+        updated_at: now,
+      })
+      .eq("id", taskId)
+  }
+
+  await admin.from("task_logs").insert({
     task_id: taskId,
     user_id: user.id,
     action: "submitted",
@@ -274,17 +497,17 @@ export async function submitWork(
   await createNotification({
     userId: task.created_by,
     actorId: user.id,
-    type: 'proof_submitted',
-    category: 'mission',
-    title: 'Proof Submitted',
+    type: "proof_submitted",
+    category: "mission",
+    title: "Proof Submitted",
     message: `Someone submitted proof for your mission: "${task.title}"`,
-    actionUrl: `/tasks/${taskId}/review`,
+    actionUrl: `/tasks/${taskId}/review?claim=${claim.id}`,
   })
 
   return { success: true }
 }
 
-export async function approveWork(taskId: string) {
+export async function approveWork(taskId: string, claimId: string) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -292,9 +515,11 @@ export async function approveWork(taskId: string) {
   if (!user)
     return { error: "not_authenticated", message: "You must be signed in." }
 
-  const { data: task } = await supabase
+  const admin = createAdminClient()
+
+  const { data: task } = await admin
     .from("tasks")
-    .select("id, title, status, created_by, claimed_by, reward_credits, ada_reward")
+    .select("id, title, created_by, reward_credits, ada_reward, max_claimers")
     .eq("id", taskId)
     .single()
 
@@ -304,16 +529,26 @@ export async function approveWork(taskId: string) {
       error: "not_poster",
       message: "Only the mission poster can approve submissions.",
     }
-  if (task.status !== "submitted")
+
+  const { data: claim } = await admin
+    .from("task_claims")
+    .select("id, status, user_id")
+    .eq("id", claimId)
+    .eq("task_id", taskId)
+    .single()
+
+  if (!claim) return { error: "not_found", message: "Submission not found." }
+  if (claim.status !== "submitted")
     return { error: "invalid_status", message: "No submission to approve." }
 
+  const maxClaimers = task.max_claimers ?? 1
   let payoutTxHash: string | null = null
 
-  if (task.ada_reward && task.ada_reward > 0 && task.claimed_by) {
-    const { data: claimerProfile } = await supabase
+  if (task.ada_reward && task.ada_reward > 0 && claim.user_id) {
+    const { data: claimerProfile } = await admin
       .from("profiles")
       .select("credits, wallet_address")
-      .eq("id", task.claimed_by)
+      .eq("id", claim.user_id)
       .single()
 
     if (!claimerProfile?.wallet_address) {
@@ -332,48 +567,61 @@ export async function approveWork(taskId: string) {
 
     payoutTxHash = payoutResult.txHash
 
-    const adminClient = createAdminClient()
-    await adminClient
+    await admin
       .from("profiles")
       .update({
         credits: (claimerProfile.credits ?? 0) + (task.reward_credits ?? 0),
       })
-      .eq("id", task.claimed_by)
-  } else if (task.claimed_by && task.reward_credits) {
-    const { data: claimerProfile } = await supabase
+      .eq("id", claim.user_id)
+  } else if (claim.user_id && task.reward_credits) {
+    const { data: claimerProfile } = await admin
       .from("profiles")
       .select("credits")
-      .eq("id", task.claimed_by)
+      .eq("id", claim.user_id)
       .single()
 
-    const adminClient = createAdminClient()
-    await adminClient
+    await admin
       .from("profiles")
       .update({ credits: (claimerProfile?.credits ?? 0) + task.reward_credits })
-      .eq("id", task.claimed_by)
+      .eq("id", claim.user_id)
   }
 
-  const { error: taskError } = await supabase
-    .from("tasks")
-    .update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", taskId)
+  const now = new Date().toISOString()
 
-  if (taskError)
+  const { error: claimError } = await admin
+    .from("task_claims")
+    .update({
+      status: "approved",
+      completed_at: now,
+      cardano_tx_hash: payoutTxHash,
+    })
+    .eq("id", claim.id)
+
+  if (claimError)
     return {
       error: "update_failed",
       message: "Something went wrong. Please try again.",
     }
 
-  await supabase.from("task_logs").insert({
+  await admin.from("task_logs").insert({
     task_id: taskId,
-    user_id: task.claimed_by,
+    user_id: claim.user_id,
     action: "completed",
     cardano_tx_hash: payoutTxHash,
   })
+
+  if (maxClaimers === 1) {
+    await admin
+      .from("tasks")
+      .update({
+        status: "completed",
+        completed_at: now,
+        updated_at: now,
+      })
+      .eq("id", taskId)
+  } else {
+    await recomputeMultiTaskState(admin, taskId, maxClaimers)
+  }
 
   revalidatePath(`/tasks/${taskId}`)
   revalidatePath("/missions")
@@ -381,14 +629,17 @@ export async function approveWork(taskId: string) {
   revalidatePath("/leaderboard")
   revalidatePath("/record")
 
-  if (task.claimed_by) {
-    const adaText = task.ada_reward > 0 ? ` ${formatAda(task.ada_reward)} has been sent to your wallet.` : ''
+  if (claim.user_id) {
+    const adaText =
+      task.ada_reward > 0
+        ? ` ${formatAda(task.ada_reward)} has been sent to your wallet.`
+        : ""
     await createNotification({
-      userId: task.claimed_by,
+      userId: claim.user_id,
       actorId: user.id,
-      type: 'submission_approved',
-      category: 'reward',
-      title: 'Submission Approved',
+      type: "submission_approved",
+      category: "reward",
+      title: "Submission Approved",
       message: `Your proof for "${task.title}" was approved.${adaText}`,
       actionUrl: `/tasks/${taskId}`,
     })
@@ -397,7 +648,11 @@ export async function approveWork(taskId: string) {
   return { success: true }
 }
 
-export async function rejectWork(taskId: string, reason?: string) {
+export async function rejectWork(
+  taskId: string,
+  claimId: string,
+  reason?: string
+) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -405,9 +660,11 @@ export async function rejectWork(taskId: string, reason?: string) {
   if (!user)
     return { error: "not_authenticated", message: "You must be signed in." }
 
-  const { data: task } = await supabase
+  const admin = createAdminClient()
+
+  const { data: task } = await admin
     .from("tasks")
-    .select("id, title, status, created_by, claimed_by")
+    .select("id, title, created_by, max_claimers")
     .eq("id", taskId)
     .single()
 
@@ -417,32 +674,63 @@ export async function rejectWork(taskId: string, reason?: string) {
       error: "not_poster",
       message: "Only the mission poster can reject submissions.",
     }
-  if (task.status !== "submitted")
+
+  const { data: claim } = await admin
+    .from("task_claims")
+    .select("id, status, user_id")
+    .eq("id", claimId)
+    .eq("task_id", taskId)
+    .single()
+
+  if (!claim) return { error: "not_found", message: "Submission not found." }
+  if (claim.status !== "submitted")
     return { error: "invalid_status", message: "No submission to reject." }
 
-  const { error: updateError } = await supabase
-    .from("tasks")
-    .update({
-      status: "open",
-      claimed_by: null,
-      claimed_at: null,
-      proof_notes: null,
-      proof_image_url: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", taskId)
+  const maxClaimers = task.max_claimers ?? 1
+  const now = new Date().toISOString()
 
-  if (updateError)
+  const { error: claimError } = await admin
+    .from("task_claims")
+    .update({
+      status: "rejected",
+      rejection_reason: reason ?? null,
+    })
+    .eq("id", claim.id)
+
+  if (claimError)
     return {
       error: "update_failed",
       message: "Something went wrong. Please try again.",
     }
 
-  await supabase.from("task_proofs").delete().eq("task_id", taskId)
+  // Clear this operative's proof URLs; other claimers' proofs are untouched.
+  await admin
+    .from("task_proofs")
+    .delete()
+    .eq("task_id", taskId)
+    .eq("submitted_by", claim.user_id)
 
-  await supabase.from("task_logs").insert({
+  // The task itself returns to 'open' (the slot reopens); it is never marked
+  // 'rejected'. Single-claimer missions clear their mirrored proof fields.
+  if (maxClaimers === 1) {
+    await admin
+      .from("tasks")
+      .update({
+        status: "open",
+        claimed_by: null,
+        claimed_at: null,
+        proof_notes: null,
+        proof_image_url: null,
+        updated_at: now,
+      })
+      .eq("id", taskId)
+  } else {
+    await recomputeMultiTaskState(admin, taskId, maxClaimers)
+  }
+
+  await admin.from("task_logs").insert({
     task_id: taskId,
-    user_id: user.id,
+    user_id: claim.user_id,
     action: "cancelled",
   })
 
@@ -450,13 +738,13 @@ export async function rejectWork(taskId: string, reason?: string) {
   revalidatePath("/missions")
   revalidatePath("/realm")
 
-  if (task.claimed_by) {
+  if (claim.user_id) {
     await createNotification({
-      userId: task.claimed_by,
+      userId: claim.user_id,
       actorId: user.id,
-      type: 'submission_rejected',
-      category: 'mission',
-      title: 'Submission Rejected',
+      type: "submission_rejected",
+      category: "mission",
+      title: "Submission Rejected",
       message: `Your proof for "${task.title}" was rejected. Review the feedback and resubmit.`,
       actionUrl: `/tasks/${taskId}/submit`,
     })
@@ -512,12 +800,104 @@ export async function markTaskNotificationsRead(taskId: string) {
   if (!user) return
 
   const adminClient = createAdminClient()
+  // Match both `/tasks/{id}/review` and `/tasks/{id}/review?claim=…`.
   await adminClient
-    .from('notifications')
+    .from("notifications")
     .update({ read: true })
-    .eq('user_id', user.id)
-    .eq('action_url', `/tasks/${taskId}/review`)
-    .eq('read', false)
+    .eq("user_id", user.id)
+    .like("action_url", `/tasks/${taskId}/review%`)
+    .eq("read", false)
+}
+
+export async function processDeadlineRefund(
+  taskId: string
+): Promise<{ success: boolean; refundAmount?: number; error?: string }> {
+  const adminClient = createAdminClient()
+
+  const { data: task } = await adminClient
+    .from("tasks")
+    .select(
+      "id, title, created_by, max_claimers, reward_per_claimer, ada_reward, status, deadline"
+    )
+    .eq("id", taskId)
+    .single()
+
+  if (!task) return { success: false, error: "not_found" }
+  if (task.status === "completed" || task.status === "cancelled")
+    return { success: false, error: "already_closed" }
+  if (!task.deadline || new Date(task.deadline) > new Date())
+    return { success: false, error: "deadline_not_reached" }
+
+  // Count approved claims
+  const { count: approvedCount } = await adminClient
+    .from("task_claims")
+    .select("id", { count: "exact", head: true })
+    .eq("task_id", taskId)
+    .eq("status", "approved")
+
+  const totalSlots = task.max_claimers ?? 1
+  const filledSlots = approvedCount ?? 0
+  const unfilledSlots = totalSlots - filledSlots
+
+  // Close the task
+  await adminClient
+    .from("tasks")
+    .update({
+      status: unfilledSlots === 0 ? "completed" : "cancelled",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId)
+
+  if (unfilledSlots <= 0) return { success: true, refundAmount: 0 }
+
+  // Calculate refund amount
+  const rewardPerClaimer = task.reward_per_claimer ?? task.ada_reward ?? 0
+  const refundLovelace = unfilledSlots * rewardPerClaimer
+
+  if (refundLovelace > 0) {
+    const { data: poster } = await adminClient
+      .from("profiles")
+      .select("wallet_address")
+      .eq("id", task.created_by)
+      .single()
+
+    if (poster?.wallet_address) {
+      try {
+        const refundResult = await sendAdaPayoutViaService(
+          poster.wallet_address,
+          refundLovelace
+        )
+        if ("txHash" in refundResult) {
+          await adminClient.from("task_logs").insert({
+            task_id: taskId,
+            user_id: task.created_by,
+            action: "cancelled",
+            notes: `Deadline refund: ${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""}`,
+            cardano_tx_hash: refundResult.txHash,
+          })
+        }
+      } catch (err) {
+        console.error("Refund payout failed:", err)
+        // Task is still cancelled. Refund failure is logged but not blocking.
+      }
+    }
+  }
+
+  // Notify poster
+  await createNotification({
+    userId: task.created_by,
+    type: "deadline_refund",
+    category: "reward",
+    title: "Mission Deadline Reached",
+    message: `Your mission "${task.title}" deadline passed. ${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""} refunded.`,
+    actionUrl: `/tasks/${taskId}`,
+  })
+
+  revalidatePath(`/tasks/${taskId}`)
+  revalidatePath("/missions")
+  revalidatePath("/realm")
+
+  return { success: true, refundAmount: refundLovelace }
 }
 
 async function sendAdaPayout(

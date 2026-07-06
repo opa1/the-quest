@@ -44,6 +44,7 @@ export interface ContributionRecord {
   category: string
   difficulty: 'easy' | 'medium' | 'hard'
   reward_credits: number
+  ada_reward: number
   completed_at: string
   cardano_tx_hash: string | null
 }
@@ -73,6 +74,7 @@ export interface PostMissionForm {
   difficulty: 'easy' | 'medium' | 'hard'
   ada_reward: number
   proof_type: 'url' | 'text' | 'image' | 'any'
+  max_claimers: number
 }
 
 export type PostMissionError = {
@@ -99,6 +101,9 @@ export interface Mission {
   difficulty: 'easy' | 'medium' | 'hard'
   reward_credits: number
   ada_reward?: number
+  max_claimers?: number
+  reward_per_claimer?: number
+  deadline?: string | null
   proof_type?: 'url' | 'text' | 'image' | 'any'
   proof_notes?: string | null
   proof_image_url?: string | null

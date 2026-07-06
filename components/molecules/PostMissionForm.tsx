@@ -48,11 +48,17 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
     difficulty: "easy",
     ada_reward: 0,
     proof_type: "any",
+    max_claimers: 1,
   })
   const [error, setError] = useState<PostMissionError>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [txState, setTxState] = useState<TxState>("idle")
   const [detectedXp, setDetectedXp] = useState<number | null>(null)
+  const [isMultiple, setIsMultiple] = useState(false)
+  const [rewardPerPerson, setRewardPerPerson] = useState<number>(
+    QUEST_CONFIG.postMission.minRewardPerPerson
+  )
+  const [deadline, setDeadline] = useState<string | null>(null)
   const { form: cfg } = QUEST_CONFIG.postMission
 
   const onXpChange = (xp: number) => setDetectedXp(xp)
@@ -74,6 +80,18 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
     setForm((prev) => ({ ...prev, proof_type: value }))
   }
 
+  const onMaxClaimersChange = (value: number) => {
+    setForm((prev) => ({ ...prev, max_claimers: value }))
+  }
+
+  const onToggleMultiple = (multiple: boolean) => {
+    setIsMultiple(multiple)
+    setForm((prev) => ({
+      ...prev,
+      max_claimers: multiple ? Math.max(2, prev.max_claimers) : 1,
+    }))
+  }
+
   const validate = (): PostMissionError => {
     if (!form.title.trim() || form.title.trim().length < 10)
       return { field: "title", message: "Title must be at least 10 characters." }
@@ -91,9 +109,31 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
       return
     }
 
-    if (!form.ada_reward || form.ada_reward <= 0) {
+    if (isMultiple) {
+      if (form.max_claimers < 2 || form.max_claimers > 100) {
+        setError({ field: "submit", message: "Slot count must be between 2 and 100." })
+        return
+      }
+      if (rewardPerPerson < QUEST_CONFIG.postMission.minRewardPerPerson) {
+        setError({ field: "submit", message: "Minimum reward per person is 5 ADA." })
+        return
+      }
+    } else if (!form.ada_reward || form.ada_reward <= 0) {
       setError({ field: "submit", message: QUEST_CONFIG.postMission.adaRequiredError })
       return
+    }
+
+    if (deadline) {
+      const d = new Date(deadline)
+      const now = new Date()
+      if (d < new Date(now.getTime() + 24 * 60 * 60 * 1000)) {
+        setError({ field: "submit", message: "Deadline must be at least 24 hours from now." })
+        return
+      }
+      if (d > new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)) {
+        setError({ field: "submit", message: "Deadline cannot be more than 3 months from now." })
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -126,10 +166,11 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
       setTxState("awaiting_signature")
 
       const { depositBounty } = await import("@/lib/cardano/deposit")
-      const depositResult = await depositBounty(
-        api,
-        BigInt(Math.round(form.ada_reward * 1_000_000))
-      )
+      // Escrow covers one payout per claimer slot.
+      const depositLovelace = isMultiple
+        ? form.max_claimers * Math.round(rewardPerPerson * 1_000_000)
+        : Math.round(form.ada_reward * 1_000_000)
+      const depositResult = await depositBounty(api, BigInt(depositLovelace))
       setTxState("submitting")
 
       if ("error" in depositResult) {
@@ -150,6 +191,12 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
 
     const result = await createMission({
       ...form,
+      ada_reward: isMultiple ? rewardPerPerson : form.ada_reward,
+      max_claimers: isMultiple ? form.max_claimers : 1,
+      reward_per_claimer: isMultiple
+        ? Math.round(rewardPerPerson * 1_000_000)
+        : Math.round(form.ada_reward * 1_000_000),
+      deadline: deadline ? new Date(deadline).toISOString() : null,
       deposit_tx_hash: depositTxHash,
       reward_credits: detectedXp ?? randomXpForDifficulty(form.difficulty),
     })
@@ -217,9 +264,9 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
 
   return (
     <>
-      {/* Desktop (lg+) — two columns */}
+      {/* Desktop (lg+) - two columns */}
       <div className="hidden lg:grid lg:grid-cols-[1fr_380px] lg:gap-12">
-        {/* Left — form */}
+        {/* Left - form */}
         <div className="flex flex-col gap-6">
           <MissionFormFields
             form={form}
@@ -228,7 +275,14 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
             onDifficultyChange={onDifficultyChange}
             onAdaRewardChange={onAdaRewardChange}
             onProofTypeChange={onProofTypeChange}
+            onMaxClaimersChange={onMaxClaimersChange}
             onXpChange={onXpChange}
+            isMultiple={isMultiple}
+            onToggleMultiple={onToggleMultiple}
+            rewardPerPerson={rewardPerPerson}
+            onRewardPerPersonChange={setRewardPerPerson}
+            deadline={deadline}
+            onDeadlineChange={setDeadline}
           />
           <Separator />
           {error?.field === "submit" && (
@@ -237,13 +291,19 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
           {submitButton}
         </div>
 
-        {/* Right — sticky preview */}
+        {/* Right - sticky preview */}
         <div className="sticky top-24 self-start">
-          <MissionPreview form={form} xp={detectedXp ?? undefined} />
+          <MissionPreview
+            form={form}
+            xp={detectedXp ?? undefined}
+            maxClaimers={isMultiple ? form.max_claimers : 1}
+            rewardPerPerson={isMultiple ? rewardPerPerson : undefined}
+            deadline={deadline}
+          />
         </div>
       </div>
 
-      {/* Mobile / tablet (< lg) — tabs */}
+      {/* Mobile / tablet (< lg) - tabs */}
       <div className="lg:hidden">
         <Tabs defaultValue="form">
           <TabsList className="mb-6 w-full">
@@ -270,7 +330,14 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
                 onDifficultyChange={onDifficultyChange}
                 onAdaRewardChange={onAdaRewardChange}
                 onProofTypeChange={onProofTypeChange}
+                onMaxClaimersChange={onMaxClaimersChange}
                 onXpChange={onXpChange}
+                isMultiple={isMultiple}
+                onToggleMultiple={onToggleMultiple}
+                rewardPerPerson={rewardPerPerson}
+                onRewardPerPersonChange={setRewardPerPerson}
+                deadline={deadline}
+                onDeadlineChange={setDeadline}
               />
               <Separator />
               {error?.field === "submit" && (
@@ -281,7 +348,13 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
           </TabsContent>
 
           <TabsContent value="preview">
-            <MissionPreview form={form} xp={detectedXp ?? undefined} />
+            <MissionPreview
+            form={form}
+            xp={detectedXp ?? undefined}
+            maxClaimers={isMultiple ? form.max_claimers : 1}
+            rewardPerPerson={isMultiple ? rewardPerPerson : undefined}
+            deadline={deadline}
+          />
           </TabsContent>
         </Tabs>
       </div>

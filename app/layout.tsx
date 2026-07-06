@@ -51,7 +51,7 @@ export const metadata: Metadata = {
       "The Quest | Complete Tasks. Earn Credits. Build Your On-Chain Legacy.",
     description:
       "Claim tasks. Do the work. Get paid. Every completed mission is sealed on the Cardano blockchain forever. Your reputation starts now.",
-    images: ["/og/the-quest-og.jpg"],
+    images: ["/og/the-quest-og.webp"],
   },
   robots: {
     index: true,

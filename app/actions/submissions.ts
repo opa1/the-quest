@@ -8,18 +8,27 @@ export type ProofUrl = {
   created_at: string
 }
 
-export async function getTaskProofs(taskId: string): Promise<ProofUrl[]> {
+export async function getTaskProofs(
+  taskId: string,
+  userId?: string
+): Promise<ProofUrl[]> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data } = await supabase
+  let query = supabase
     .from("task_proofs")
     .select("id, url, created_at")
     .eq("task_id", taskId)
-    .order("created_at", { ascending: true })
+
+  // Scope to a single operative's submission when reviewing one claim.
+  if (userId) {
+    query = query.eq("submitted_by", userId)
+  }
+
+  const { data } = await query.order("created_at", { ascending: true })
 
   return (data ?? []) as ProofUrl[]
 }

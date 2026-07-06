@@ -12,12 +12,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { Button } from '@/components/ui/button'
 import DifficultyRadioOption from '@/components/atoms/DifficultyRadioOption'
 import FormFieldError from '@/components/atoms/FormFieldError'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
+import { ADA_LABEL } from '@/lib/utils/currency'
 import { detectDifficulty } from '@/app/actions/detect-difficulty'
 import { randomXpForDifficulty } from '@/lib/utils/xp'
-import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 import type { PostMissionForm, PostMissionError } from '@/lib/types/missions'
 
 interface MissionFormFieldsProps {
@@ -27,7 +29,14 @@ interface MissionFormFieldsProps {
   onDifficultyChange: (value: 'easy' | 'medium' | 'hard') => void
   onAdaRewardChange: (value: number) => void
   onProofTypeChange: (value: 'url' | 'text' | 'image' | 'any') => void
+  onMaxClaimersChange: (value: number) => void
   onXpChange: (xp: number) => void
+  isMultiple: boolean
+  onToggleMultiple: (multiple: boolean) => void
+  rewardPerPerson: number
+  onRewardPerPersonChange: (value: number) => void
+  deadline: string | null
+  onDeadlineChange: (value: string | null) => void
 }
 
 type DetectionState = 'idle' | 'detecting' | 'detected' | 'failed'
@@ -50,7 +59,14 @@ export default function MissionFormFields({
   onDifficultyChange,
   onAdaRewardChange,
   onProofTypeChange,
+  onMaxClaimersChange,
   onXpChange,
+  isMultiple,
+  onToggleMultiple,
+  rewardPerPerson,
+  onRewardPerPersonChange,
+  deadline,
+  onDeadlineChange,
 }: MissionFormFieldsProps) {
   const [detectionState, setDetectionState] = useState<DetectionState>('idle')
   const [detectionError, setDetectionError] = useState<string | null>(null)
@@ -59,6 +75,14 @@ export default function MissionFormFields({
 
   const fieldError = (field: keyof PostMissionForm) =>
     error?.field === field ? error.message : null
+
+  // datetime-local wants "YYYY-MM-DDTHH:mm" in the user's local timezone.
+  const toLocalInputValue = (d: Date) => {
+    const offset = d.getTimezoneOffset() * 60000
+    return new Date(d.getTime() - offset).toISOString().slice(0, 16)
+  }
+  const deadlineMin = toLocalInputValue(new Date(Date.now() + 24 * 60 * 60 * 1000))
+  const deadlineMax = toLocalInputValue(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
 
   const runDetection = async () => {
     const title = form.title
@@ -214,7 +238,7 @@ export default function MissionFormFields({
         <FormFieldError message={fieldError('category')} />
       </div>
 
-      {/* Difficulty — only shown when user explicitly requests it */}
+      {/* Difficulty - only shown when user explicitly requests it */}
       {showManualSelector && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -275,20 +299,123 @@ export default function MissionFormFields({
         </Select>
       </div>
 
-      {/* ADA Reward */}
+      {/* Submission type toggle */}
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
-          {cfg.adaRewardLabel}
+          {pmCfg.submissionType}
         </Label>
-        <Input
-          type="number"
-          min={0}
-          value={form.ada_reward === 0 ? '' : form.ada_reward}
-          onChange={(e) => onAdaRewardChange(Number(e.target.value) || 0)}
-          placeholder={cfg.adaRewardPlaceholder}
-          className="bg-muted/30 border-border/50 focus:border-primary"
-        />
-        <p className="text-xs text-muted-foreground">{cfg.adaRewardHelper}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            type="button"
+            variant={isMultiple ? 'outline' : 'default'}
+            onClick={() => onToggleMultiple(false)}
+          >
+            <span className="text-xs font-bold uppercase tracking-widest">
+              {pmCfg.singleLabel}
+            </span>
+          </Button>
+          <Button
+            type="button"
+            variant={isMultiple ? 'default' : 'outline'}
+            onClick={() => onToggleMultiple(true)}
+          >
+            <span className="text-xs font-bold uppercase tracking-widest">
+              {pmCfg.multipleLabel}
+            </span>
+          </Button>
+        </div>
+      </div>
+
+      {isMultiple ? (
+        <>
+          {/* Number of claimers */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+              {pmCfg.claimersLabel}
+            </Label>
+            <Input
+              type="number"
+              min={2}
+              max={pmCfg.maxClaimers}
+              step={1}
+              value={form.max_claimers}
+              onChange={(e) => {
+                const n = Math.floor(Number(e.target.value) || 2)
+                onMaxClaimersChange(Math.min(pmCfg.maxClaimers, Math.max(2, n)))
+              }}
+              className="bg-muted/30 border-border/50 focus:border-primary"
+            />
+            <p className="text-xs text-muted-foreground">{pmCfg.claimersHelper}</p>
+          </div>
+
+          {/* Reward per person */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+              {pmCfg.rewardPerPersonLabel}
+            </Label>
+            <Input
+              type="number"
+              min={pmCfg.minRewardPerPerson}
+              value={rewardPerPerson === 0 ? '' : rewardPerPerson}
+              onChange={(e) => onRewardPerPersonChange(Number(e.target.value) || 0)}
+              className="bg-muted/30 border-border/50 focus:border-primary"
+            />
+            <p className="text-xs text-muted-foreground">{pmCfg.rewardPerPersonHelper}</p>
+          </div>
+
+          {/* Total deposit (calculated) */}
+          <div className="rounded-[10px] border border-amber-800 bg-amber-950/40 px-4 py-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-amber-400">
+              {pmCfg.totalDepositLabel}:{' '}
+              {form.max_claimers} x {rewardPerPerson || 0} ={' '}
+              {+(form.max_claimers * (rewardPerPerson || 0)).toFixed(2)} {ADA_LABEL}
+            </span>
+          </div>
+        </>
+      ) : (
+        /* ADA Reward (single) */
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+            {cfg.adaRewardLabel}
+          </Label>
+          <Input
+            type="number"
+            min={0}
+            value={form.ada_reward === 0 ? '' : form.ada_reward}
+            onChange={(e) => onAdaRewardChange(Number(e.target.value) || 0)}
+            placeholder={cfg.adaRewardPlaceholder}
+            className="bg-muted/30 border-border/50 focus:border-primary"
+          />
+          <p className="text-xs text-muted-foreground">{cfg.adaRewardHelper}</p>
+        </div>
+      )}
+
+      {/* Deadline (optional, all missions) */}
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+          {pmCfg.deadlineLabel}
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="datetime-local"
+            min={deadlineMin}
+            max={deadlineMax}
+            value={deadline ?? ''}
+            onChange={(e) => onDeadlineChange(e.target.value || null)}
+            className="bg-muted/30 border-border/50 focus:border-primary"
+          />
+          {deadline && (
+            <button
+              type="button"
+              onClick={() => onDeadlineChange(null)}
+              aria-label="Clear deadline"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-border/50 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">{pmCfg.deadlineHelper}</p>
       </div>
 
     </div>

@@ -5,16 +5,28 @@ import type { PostMissionForm } from '@/lib/types/missions'
 interface MissionPreviewProps {
   form: PostMissionForm
   xp?: number
+  maxClaimers?: number
+  rewardPerPerson?: number
+  deadline?: string | null
 }
 
-export default function MissionPreview({ form, xp }: MissionPreviewProps) {
+export default function MissionPreview({
+  form,
+  xp,
+  maxClaimers = 1,
+  rewardPerPerson,
+  deadline = null,
+}: MissionPreviewProps) {
   const { previewTitle, previewSubtext } = QUEST_CONFIG.postMission
 
   const title = form.title.trim() || 'Your mission title will appear here'
   const description = form.description.trim() || 'Your mission brief will appear here...'
   const category = form.category || 'DESIGN'
   const difficulty = form.difficulty.toUpperCase() as 'EASY' | 'MEDIUM' | 'HARD'
-  const adaReward = form.ada_reward > 0 ? Math.round(form.ada_reward * 1_000_000) : undefined
+
+  const isMulti = maxClaimers > 1
+  const perPersonAda = isMulti ? (rewardPerPerson ?? 0) : form.ada_reward
+  const adaReward = perPersonAda > 0 ? Math.round(perPersonAda * 1_000_000) : undefined
 
   return (
     <div className="flex flex-col gap-4">
@@ -33,6 +45,9 @@ export default function MissionPreview({ form, xp }: MissionPreviewProps) {
         xp={xp ?? 0}
         adaReward={adaReward}
         proofType={form.proof_type}
+        maxClaimers={maxClaimers}
+        rewardPerClaimer={isMulti ? adaReward : undefined}
+        deadline={deadline}
         featured={false}
       />
     </div>

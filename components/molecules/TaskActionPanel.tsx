@@ -20,20 +20,21 @@ import {
   XCircle,
 } from "lucide-react"
 
+type ClaimStatus = "claimed" | "submitted" | "approved" | "rejected"
+
 interface TaskActionPanelProps {
   taskId: string
-  status:
-    | "open"
-    | "claimed"
-    | "submitted"
-    | "rejected"
-    | "completed"
-    | "cancelled"
+  status: "open" | "claimed" | "submitted" | "rejected" | "completed" | "cancelled"
   createdById: string
-  claimedById: string | null
+  maxClaimers: number
+  myClaimStatus: ClaimStatus | null
+  slotsRemaining: number
+  submittedCount: number
+  approvedClaimers?: number
+  deadline?: string | null
+  rewardPerClaimer?: number
   xp: number
   adaReward: number
-  proofType: string
   txHash: string | null
   completedAt: string | null
   claimedAt: string | null
@@ -45,7 +46,13 @@ export default function TaskActionPanel({
   taskId,
   status,
   createdById,
-  claimedById,
+  maxClaimers,
+  myClaimStatus,
+  slotsRemaining,
+  submittedCount,
+  approvedClaimers,
+  deadline,
+  rewardPerClaimer,
   xp,
   adaReward,
   txHash,
@@ -58,21 +65,36 @@ export default function TaskActionPanel({
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [claimed, setClaimed] = useState(false)
+  // Optimistic override once the viewer claims/drops in this session.
+  const [localClaim, setLocalClaim] = useState<ClaimStatus | null>(null)
+  const [dropped, setDropped] = useState(false)
   const { actions } = QUEST_CONFIG.taskDetail
 
   useEffect(() => setMounted(true), [])
 
   const isCreator = mounted ? user?.id === createdById : false
-  const isClaimer = mounted ? user?.id === claimedById : false
   const isGuest = mounted && !user
+
+  const myStatus: ClaimStatus | null = dropped
+    ? null
+    : (localClaim ?? myClaimStatus)
+
+  const isMulti = maxClaimers > 1
+  const effectiveSlots = slotsRemaining - (localClaim === "claimed" ? 1 : 0)
+  const isTaskComplete = status === "completed"
+  const canClaim =
+    mounted &&
+    !isCreator &&
+    !isGuest &&
+    !isTaskComplete &&
+    (myStatus === null || myStatus === "rejected") &&
+    effectiveSlots > 0
 
   const handleClaim = async () => {
     setIsLoading(true)
     setError(null)
 
     const result = await claimTask(taskId)
-    console.log("claim result:", result)
 
     if (result.error) {
       setError(result.message ?? "Something went wrong. Please try again.")
@@ -80,7 +102,8 @@ export default function TaskActionPanel({
       return
     }
 
-    setClaimed(true)
+    setLocalClaim("claimed")
+    setDropped(false)
     setIsLoading(false)
   }
 
@@ -96,20 +119,99 @@ export default function TaskActionPanel({
       return
     }
 
+    setDropped(true)
+    setLocalClaim(null)
     setIsLoading(false)
   }
 
+  const claimButton = (
+    <Button
+      variant="default"
+      size="lg"
+      className="w-full"
+      onClick={handleClaim}
+      disabled={isLoading}
+    >
+      {isLoading ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <span className="text-sm font-bold tracking-widest uppercase">
+            CLAIMING...
+          </span>
+        </>
+      ) : (
+        <span className="text-sm font-bold tracking-widest uppercase">
+          {actions.claim}
+        </span>
+      )}
+    </Button>
+  )
+
   return (
     <div className="flex flex-col gap-4">
-      {/* XP Reward card */}
+      {/* Reward card */}
       <Card className="flex flex-col gap-4 rounded-[16px] border-border/50 bg-card p-6">
-        {adaReward > 0 && <AdaReward lovelace={adaReward} />}
+        {isMulti && rewardPerClaimer && rewardPerClaimer > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <AdaReward lovelace={rewardPerClaimer} />
+            <span className="text-[10px] text-muted-foreground uppercase">
+              per person
+            </span>
+          </div>
+        ) : (
+          adaReward > 0 && <AdaReward lovelace={adaReward} />
+        )}
         <XPReward xp={xp} />
+
+        {/* Slot progress for multi-claimer missions */}
+        {isMulti && (
+          <div className="text-center text-xs text-muted-foreground">
+            {approvedClaimers ?? 0} of {maxClaimers} slots filled
+          </div>
+        )}
+
+        {/* Deadline shown while the mission is still open */}
+        {deadline && status === "open" && (
+          <div className="text-center text-xs text-muted-foreground">
+            Deadline:{" "}
+            {new Date(deadline).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </div>
+        )}
 
         <Separator />
 
-        {/* OPEN — guest must sign in to claim */}
-        {status === "open" && isGuest && (
+        {/* Completed mission */}
+        {isTaskComplete && myStatus !== "approved" && (
+          <div className="py-2 text-center text-xs tracking-widest text-green-400 uppercase">
+            QUEST COMPLETE
+          </div>
+        )}
+
+        {/* Viewer's own approved claim */}
+        {myStatus === "approved" && (
+          <div className="flex flex-col items-center gap-2 py-2">
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="text-sm font-bold tracking-widest uppercase">
+                Reward Claimed
+              </span>
+            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              Your submission was approved. See it on your{" "}
+              <a href="/record" className="text-primary underline underline-offset-2">
+                Record
+              </a>
+              .
+            </p>
+          </div>
+        )}
+
+        {/* Guest - must sign in to claim */}
+        {!isTaskComplete && isGuest && (
           <Button
             variant="default"
             size="lg"
@@ -122,69 +224,27 @@ export default function TaskActionPanel({
           </Button>
         )}
 
-        {/* OPEN — not creator */}
-        {status === "open" && !isCreator && !isGuest && (
+        {/* Creator */}
+        {!isTaskComplete && isCreator && (
           <>
-            {claimed ? (
-              <div className="flex flex-col items-center gap-3 py-2">
-                <div className="flex items-center gap-2 text-green-400">
-                  <CheckCircle2 className="h-5 w-5" />
+            {submittedCount > 0 ? (
+              <Button variant="default" size="lg" className="w-full" asChild>
+                <a href={`/tasks/${taskId}/review`}>
                   <span className="text-sm font-bold tracking-widest uppercase">
-                    Mission Claimed
+                    Review Submissions ({submittedCount})
                   </span>
-                </div>
-                <p className="text-center text-xs text-muted-foreground">
-                  Head to your{" "}
-                  <a
-                    href="/record"
-                    className="text-primary underline underline-offset-2"
-                  >
-                    Record
-                  </a>{" "}
-                  to track your active missions.
-                </p>
-                <Button variant="default" size="sm" className="w-full" asChild>
-                  <a href={`/tasks/${taskId}/submit`}>
-                    <span className="text-xs font-bold tracking-widest uppercase">
-                      SUBMIT WORK
-                    </span>
-                  </a>
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="default"
-                size="lg"
-                className="w-full"
-                onClick={handleClaim}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span className="text-sm font-bold tracking-widest uppercase">
-                      CLAIMING...
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-sm font-bold tracking-widest uppercase">
-                    {actions.claim}
-                  </span>
-                )}
+                </a>
               </Button>
+            ) : (
+              <div className="py-2 text-center text-xs tracking-widest text-muted-foreground uppercase">
+                {actions.youPosted}
+              </div>
             )}
           </>
         )}
 
-        {/* OPEN — is creator */}
-        {status === "open" && isCreator && (
-          <div className="py-2 text-center text-xs tracking-widest text-muted-foreground uppercase">
-            {actions.youPosted}
-          </div>
-        )}
-
-        {/* CLAIMED — current user is claimer */}
-        {status === "claimed" && isClaimer && (
+        {/* Viewer holds an active claim */}
+        {!isTaskComplete && !isCreator && myStatus === "claimed" && (
           <div className="flex flex-col gap-3">
             <Button variant="default" size="lg" className="w-full" asChild>
               <a href={`/tasks/${taskId}/submit`}>
@@ -207,15 +267,8 @@ export default function TaskActionPanel({
           </div>
         )}
 
-        {/* CLAIMED — someone else claimed */}
-        {status === "claimed" && !isClaimer && (
-          <div className="py-2 text-center text-xs tracking-widest text-muted-foreground uppercase">
-            {actions.inProgress}
-          </div>
-        )}
-
-        {/* SUBMITTED — claimer awaiting review */}
-        {status === "submitted" && isClaimer && (
+        {/* Viewer submitted - awaiting review */}
+        {!isTaskComplete && !isCreator && myStatus === "submitted" && (
           <div className="flex flex-col items-center gap-2 py-2">
             <div className="flex items-center gap-2 text-primary">
               <Clock className="h-4 w-4" />
@@ -229,26 +282,8 @@ export default function TaskActionPanel({
           </div>
         )}
 
-        {/* SUBMITTED — poster can review */}
-        {status === "submitted" && isCreator && (
-          <Button variant="default" size="lg" className="w-full" asChild>
-            <a href={`/tasks/${taskId}/review`}>
-              <span className="text-sm font-bold tracking-widest uppercase">
-                REVIEW SUBMISSION
-              </span>
-            </a>
-          </Button>
-        )}
-
-        {/* SUBMITTED — other viewer */}
-        {status === "submitted" && !isClaimer && !isCreator && (
-          <div className="py-2 text-center text-xs tracking-widest text-muted-foreground uppercase">
-            AWAITING REVIEW
-          </div>
-        )}
-
-        {/* REJECTED — claimer can resubmit */}
-        {status === "rejected" && isClaimer && (
+        {/* Viewer was rejected but may re-claim if a slot is free */}
+        {!isTaskComplete && !isCreator && myStatus === "rejected" && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-center gap-2 py-1 text-destructive">
               <XCircle className="h-4 w-4" />
@@ -256,22 +291,28 @@ export default function TaskActionPanel({
                 Submission Rejected
               </span>
             </div>
-            <Button variant="default" size="lg" className="w-full" asChild>
-              <a href={`/tasks/${taskId}/submit`}>
-                <span className="text-sm font-bold tracking-widest uppercase">
-                  RESUBMIT
-                </span>
-              </a>
-            </Button>
+            {canClaim ? (
+              claimButton
+            ) : (
+              <p className="text-center text-xs text-muted-foreground">
+                This mission is no longer accepting claims.
+              </p>
+            )}
           </div>
         )}
 
-        {/* COMPLETED */}
-        {status === "completed" && (
-          <div className="py-2 text-center text-xs tracking-widest text-green-400 uppercase">
-            QUEST COMPLETE
-          </div>
-        )}
+        {/* Viewer has no claim - offer to claim or show it's full */}
+        {!isTaskComplete &&
+          !isCreator &&
+          !isGuest &&
+          myStatus === null &&
+          (canClaim ? (
+            claimButton
+          ) : (
+            <div className="py-2 text-center text-xs tracking-widest text-muted-foreground uppercase">
+              {isMulti ? "All slots filled" : actions.inProgress}
+            </div>
+          ))}
 
         {/* Error */}
         {error && (
@@ -282,7 +323,7 @@ export default function TaskActionPanel({
         )}
       </Card>
 
-      {/* Claimer info — if claimed or completed */}
+      {/* Claimer info - single-claimer missions surface the claimer here */}
       {(status === "claimed" || status === "completed") && claimer && (
         <Card className="flex flex-col gap-3 rounded-[16px] border-border/50 bg-card p-5">
           <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
@@ -328,7 +369,7 @@ export default function TaskActionPanel({
         </Card>
       )}
 
-      {/* On-chain proof — completed only */}
+      {/* On-chain proof - completed only */}
       {status === "completed" && txHash && completedAt && (
         <OnChainProofBlock txHash={txHash} completedAt={completedAt} />
       )}

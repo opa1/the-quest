@@ -27,6 +27,10 @@ interface BountyCardProps {
   adaReward?: number
   proofType?: "url" | "text" | "image" | "any"
   shareable?: boolean
+  maxClaimers?: number
+  approvedClaimers?: number
+  deadline?: string | null
+  rewardPerClaimer?: number
 }
 
 export function BountyCard({
@@ -44,9 +48,26 @@ export function BountyCard({
   adaReward,
   proofType,
   shareable,
+  maxClaimers,
+  approvedClaimers,
+  deadline,
+  rewardPerClaimer,
 }: BountyCardProps) {
   const isReviewable =
     taskStatus === "submitted" && currentUserId && currentUserId === createdBy
+
+  const isMulti = (maxClaimers ?? 1) > 1
+  const displayLovelace =
+    isMulti && rewardPerClaimer !== undefined && rewardPerClaimer > 0
+      ? rewardPerClaimer
+      : adaReward
+  const deadlineLabel = deadline
+    ? new Date(deadline).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null
 
   return (
     <Link href={`/tasks/${id}`} className="block h-full">
@@ -59,7 +80,14 @@ export function BountyCard({
         )}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CategoryBadge label={category} />
+          <div className="flex items-center gap-2">
+            <CategoryBadge label={category} />
+            {isMulti && (
+              <span className="rounded-full border border-amber-800 bg-amber-950 px-2 py-0.5 text-[10px] font-bold tracking-wider text-amber-400 uppercase">
+                Up to {maxClaimers} hunters
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {proofType && <ProofTypeBadge proofType={proofType} />}
             <DifficultyBadge difficulty={difficulty} />
@@ -77,9 +105,30 @@ export function BountyCard({
         <Separator className="my-1 bg-border/50" />
 
         <div className="flex flex-col gap-2">
+          {(isMulti && approvedClaimers !== undefined) || deadlineLabel ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {isMulti && approvedClaimers !== undefined && (
+                <span>
+                  {approvedClaimers} of {maxClaimers} slots filled
+                </span>
+              )}
+              {deadlineLabel && <span>Deadline: {deadlineLabel}</span>}
+            </div>
+          ) : null}
           <div className="flex items-end justify-between gap-2">
             <div className="flex flex-col gap-1">
-              {adaReward !== undefined && <AdaReward lovelace={adaReward} />}
+              <div className="flex items-center gap-1.5">
+                {displayLovelace !== undefined && (
+                  <AdaReward lovelace={displayLovelace} />
+                )}
+                {isMulti &&
+                  displayLovelace !== undefined &&
+                  displayLovelace > 0 && (
+                    <span className="text-[10px] text-muted-foreground uppercase">
+                      per person
+                    </span>
+                  )}
+              </div>
               {xp > 0 && <XPReward xp={xp} />}
             </div>
             {shareable && <ShareMissionButton taskId={id} title={title} />}

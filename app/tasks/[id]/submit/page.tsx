@@ -25,13 +25,21 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
 
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, title, status, claimed_by, proof_type, created_by")
+    .select("id, title, status, proof_type, created_by")
     .eq("id", id)
     .single()
 
   if (!task) redirect(`/tasks/${id}`)
-  if (task.claimed_by !== user.id) redirect(`/tasks/${id}`)
-  if (task.status !== "claimed") redirect(`/tasks/${id}`)
+
+  // The operative may submit only while they hold an active (claimed) claim.
+  const { data: claim } = await supabase
+    .from("task_claims")
+    .select("status")
+    .eq("task_id", id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!claim || claim.status !== "claimed") redirect(`/tasks/${id}`)
 
   const { data: ban } = await supabase
     .from("task_bans")

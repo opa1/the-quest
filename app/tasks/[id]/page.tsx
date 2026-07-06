@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
@@ -32,6 +33,9 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
       reward_credits, ada_reward, proof_type, status, created_at, claimed_at, completed_at,
       created_by,
       claimed_by,
+      max_claimers,
+      reward_per_claimer,
+      deadline,
       poster:profiles!tasks_created_by_fkey(username, avatar_url),
       claimer:profiles!tasks_claimed_by_fkey(username, avatar_url)
     `
@@ -41,7 +45,42 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
 
   if (!task) notFound()
 
-  // console.log("task ->", task)
+  const maxClaimers = task.max_claimers ?? 1
+
+  // Claim context — the viewer's own claim plus the mission-wide slot tally.
+  const admin = createAdminClient()
+
+  let myClaimStatus:
+    | "claimed"
+    | "submitted"
+    | "approved"
+    | "rejected"
+    | null = null
+  if (user) {
+    const { data: myClaim } = await admin
+      .from("task_claims")
+      .select("status")
+      .eq("task_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+    myClaimStatus = (myClaim?.status as typeof myClaimStatus) ?? null
+  }
+
+  const { data: allClaims } = await admin
+    .from("task_claims")
+    .select("status")
+    .eq("task_id", id)
+
+  const activeCount = (allClaims ?? []).filter((c) =>
+    ["claimed", "submitted", "approved"].includes(c.status)
+  ).length
+  const submittedCount = (allClaims ?? []).filter(
+    (c) => c.status === "submitted"
+  ).length
+  const approvedCount = (allClaims ?? []).filter(
+    (c) => c.status === "approved"
+  ).length
+  const slotsRemaining = Math.max(0, maxClaimers - activeCount)
 
   let txHash: string | null = null
   if (task.status === "completed") {
@@ -50,7 +89,9 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
       .select("cardano_tx_hash")
       .eq("task_id", task.id)
       .eq("action", "completed")
-      .single()
+      .not("cardano_tx_hash", "is", null)
+      .limit(1)
+      .maybeSingle()
     txHash = log?.cardano_tx_hash ?? null
   }
 
@@ -117,10 +158,15 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             taskId={task.id}
             status={task.status as any}
             createdById={task.created_by}
-            claimedById={task.claimed_by}
+            maxClaimers={maxClaimers}
+            myClaimStatus={myClaimStatus}
+            slotsRemaining={slotsRemaining}
+            submittedCount={submittedCount}
+            approvedClaimers={approvedCount}
+            deadline={task.deadline ?? null}
+            rewardPerClaimer={task.reward_per_claimer ?? 0}
             xp={task.reward_credits}
             adaReward={task.ada_reward ?? 0}
-            proofType={task.proof_type ?? "any"}
             txHash={txHash}
             completedAt={task.completed_at}
             claimedAt={task.claimed_at}

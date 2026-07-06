@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import RecordStatsStrip from "@/components/molecules/RecordStatsStrip"
@@ -33,40 +34,116 @@ export default async function RecordPage() {
 
   if (!profile) redirect("/")
 
-  // Fetch tasks that this user has successfully completed (where they are the claimer)
-  const { data: completedTasks } = await supabase
-    .from("tasks")
-    .select("id, title, category, difficulty, reward_credits, completed_at")
-    .eq("claimed_by", user.id)
-    .eq("status", "completed")
-    .order("completed_at", { ascending: false })
+  // Completions come from two sources, deduped by task_id:
+  //   1. Multi-claimer — task_claims.status = 'approved' (tx hash on the claim).
+  //   2. Legacy single-claimer — tasks.status = 'completed' & claimed_by = user
+  //      (rows that predate task_claims; tx hash lives in task_logs).
+  const admin = createAdminClient()
 
-  const completedTaskIds = (completedTasks ?? []).map((t) => t.id)
+  const [approvedClaimsRes, legacyTasksRes] = await Promise.all([
+    admin
+      .from("task_claims")
+      .select("task_id, completed_at, cardano_tx_hash")
+      .eq("user_id", user.id)
+      .eq("status", "approved"),
+    admin
+      .from("tasks")
+      .select("id, completed_at")
+      .eq("claimed_by", user.id)
+      .eq("status", "completed"),
+  ])
 
-  // Fetch task logs to retrieve the cardano payout transaction hashes
-  let logs: { task_id: string; cardano_tx_hash: string | null }[] = []
-  if (completedTaskIds.length > 0) {
-    const { data: logData } = await supabase
-      .from("task_logs")
-      .select("task_id, cardano_tx_hash")
-      .in("task_id", completedTaskIds)
-      .eq("action", "completed")
-    logs = logData ?? []
+  // task_id -> completion metadata; claims win over legacy on overlap.
+  const claimByTask = new Map<
+    string,
+    { completed_at: string | null; cardano_tx_hash: string | null }
+  >()
+  approvedClaimsRes.data?.forEach((c) =>
+    claimByTask.set(c.task_id, {
+      completed_at: c.completed_at,
+      cardano_tx_hash: c.cardano_tx_hash,
+    })
+  )
+
+  const legacyMeta = new Map<string, { completed_at: string | null }>()
+  const legacyOnlyIds: string[] = []
+  legacyTasksRes.data?.forEach((t) => {
+    legacyMeta.set(t.id, { completed_at: t.completed_at })
+    if (!claimByTask.has(t.id)) legacyOnlyIds.push(t.id)
+  })
+
+  const allTaskIds = [
+    ...new Set([...claimByTask.keys(), ...legacyMeta.keys()]),
+  ]
+
+  // Task metadata for every completed task.
+  const taskMetaMap = new Map<
+    string,
+    {
+      title: string
+      category: string
+      difficulty: "easy" | "medium" | "hard"
+      reward_credits: number
+      ada_reward: number
+    }
+  >()
+  if (allTaskIds.length > 0) {
+    const { data: taskRows } = await admin
+      .from("tasks")
+      .select("id, title, category, difficulty, reward_credits, ada_reward")
+      .in("id", allTaskIds)
+    taskRows?.forEach((t) =>
+      taskMetaMap.set(t.id, {
+        title: t.title,
+        category: t.category,
+        difficulty: t.difficulty,
+        reward_credits: t.reward_credits ?? 0,
+        ada_reward: t.ada_reward ?? 0,
+      })
+    )
   }
 
-  const records: ContributionRecord[] = (completedTasks ?? []).map((task) => {
-    const matchingLog = logs.find((l) => l.task_id === task.id)
-    return {
-      id: task.id,
-      task_id: task.id,
-      task_title: task.title,
-      category: task.category,
-      difficulty: task.difficulty,
-      reward_credits: task.reward_credits,
-      completed_at: task.completed_at || new Date().toISOString(),
-      cardano_tx_hash: matchingLog?.cardano_tx_hash ?? null,
-    }
-  })
+  // Payout tx hashes for legacy-only completions come from task_logs.
+  const legacyTxMap = new Map<string, string | null>()
+  if (legacyOnlyIds.length > 0) {
+    const { data: logData } = await admin
+      .from("task_logs")
+      .select("task_id, cardano_tx_hash")
+      .eq("user_id", user.id)
+      .eq("action", "completed")
+      .in("task_id", legacyOnlyIds)
+    logData?.forEach((l) => {
+      if (!legacyTxMap.has(l.task_id)) legacyTxMap.set(l.task_id, l.cardano_tx_hash)
+    })
+  }
+
+  const records: ContributionRecord[] = allTaskIds
+    .map((taskId) => {
+      const meta = taskMetaMap.get(taskId)
+      const claim = claimByTask.get(taskId)
+      const completed_at =
+        claim?.completed_at ??
+        legacyMeta.get(taskId)?.completed_at ??
+        new Date().toISOString()
+      const cardano_tx_hash = claim
+        ? claim.cardano_tx_hash
+        : (legacyTxMap.get(taskId) ?? null)
+      return {
+        id: taskId,
+        task_id: taskId,
+        task_title: meta?.title ?? "Unknown Mission",
+        category: meta?.category ?? "GENERAL",
+        difficulty: meta?.difficulty ?? "easy",
+        reward_credits: meta?.reward_credits ?? 0,
+        ada_reward: meta?.ada_reward ?? 0,
+        completed_at,
+        cardano_tx_hash,
+      }
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
+    )
 
   const stats: RecordStats = {
     completed: records.length,

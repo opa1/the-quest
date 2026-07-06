@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import LeaderboardTable from '@/components/molecules/LeaderboardTable'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
+import { getCompletedCounts } from '@/app/actions/leaderboard'
 import type { LeaderboardEntry } from '@/lib/types/missions'
 
 interface LeaderboardFullTableProps {
@@ -37,22 +38,10 @@ export default function LeaderboardFullTable({
       .range(from, to)
 
     const profileIds = (data ?? []).map((p) => p.id)
-    const completedMap: Record<string, number> = {}
+    const completedMap = await getCompletedCounts(profileIds)
     const proofMap: Record<string, number> = {}
 
     if (profileIds.length > 0) {
-      const { data: completedTasks } = await supabase
-        .from('tasks')
-        .select('claimed_by')
-        .in('claimed_by', profileIds)
-        .eq('status', 'completed')
-
-      completedTasks?.forEach((t) => {
-        if (t.claimed_by) {
-          completedMap[t.claimed_by] = (completedMap[t.claimed_by] || 0) + 1
-        }
-      })
-
       const { data: proofLogs } = await supabase
         .from('task_logs')
         .select('user_id')

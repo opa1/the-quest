@@ -3,6 +3,7 @@ import { Separator } from '@/components/ui/separator'
 import { CategoryBadge } from '@/components/atoms/CategoryBadge'
 import { DifficultyBadge } from '@/components/atoms/DifficultyBadge'
 import { XPReward } from '@/components/atoms/XPReward'
+import { AdaReward } from '@/components/atoms/AdaReward'
 import { TxHashBlock } from '@/components/atoms/TxHashBlock'
 import { TxStatusBadge } from '@/components/atoms/TxStatusBadge'
 import TimeAgo from '@/components/atoms/TimeAgo'
@@ -48,6 +49,7 @@ export default function ContributionCard({ record, className }: ContributionCard
           <span className="text-xs text-muted-foreground italic">Proof pending</span>
         )}
         <div className="flex items-center gap-2 shrink-0">
+          {record.ada_reward > 0 && <AdaReward lovelace={record.ada_reward} />}
           <XPReward xp={record.reward_credits} />
           <TxStatusBadge status={record.cardano_tx_hash ? 'CONFIRMED' : 'ARCHIVED'} />
         </div>

@@ -521,6 +521,19 @@ export const QUEST_CONFIG = {
       submitLabel: "DEPLOY MISSION",
       submittingLabel: "DEPLOYING...",
     },
+    submissionType: "Submission Type",
+    singleLabel: "Single",
+    multipleLabel: "Multiple",
+    claimersLabel: "Number of Claimers",
+    claimersHelper: "How many people can complete this mission",
+    rewardPerPersonLabel: "Reward Per Person (ADA)",
+    rewardPerPersonHelper: "Each approved claimer receives this amount",
+    totalDepositLabel: "Total Deposit",
+    deadlineLabel: "Mission Deadline (Optional)",
+    deadlineHelper:
+      "Remaining ADA is refunded to your wallet if slots are not filled by this date. Max 3 months.",
+    minRewardPerPerson: 5,
+    maxClaimers: 100,
     difficultyCredits: {
       easy: {
         label: "Easy",

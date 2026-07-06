@@ -61,7 +61,7 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
     let query = supabase
       .from("tasks")
       .select(
-        "id, title, description, category, difficulty, reward_credits, ada_reward, proof_type, status, created_by, created_at, profiles!tasks_created_by_fkey(username, avatar_url)"
+        "id, title, description, category, difficulty, reward_credits, ada_reward, max_claimers, reward_per_claimer, deadline, proof_type, status, created_by, created_at, profiles!tasks_created_by_fkey(username, avatar_url)"
       )
       .range(from, to)
 
