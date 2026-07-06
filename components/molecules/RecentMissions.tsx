@@ -61,10 +61,15 @@ export default function RecentMissions({ currentUserId }: RecentMissionsProps) {
               description={mission.description}
               xp={mission.reward_credits}
               adaReward={mission.ada_reward ? mission.ada_reward : undefined}
+              maxClaimers={mission.max_claimers}
+              approvedClaimers={mission.approved_claimers}
+              rewardPerClaimer={mission.reward_per_claimer}
+              deadline={mission.deadline}
               proofType={mission.proof_type}
               currentUserId={currentUserId}
               createdBy={mission.created_by}
               taskStatus={mission.status}
+              shareable
             />
           ))}
         </div>

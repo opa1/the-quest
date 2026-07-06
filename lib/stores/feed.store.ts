@@ -28,13 +28,34 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       .from('tasks')
       .select(`
         id, title, description, category, difficulty,
-        reward_credits, ada_reward, proof_type, status, created_at, created_by,
+        reward_credits, ada_reward, max_claimers, reward_per_claimer, deadline,
+        proof_type, status, created_at, created_by,
         profiles!tasks_created_by_fkey(username, avatar_url)
       `)
       .eq('status', 'open')
       .order('created_at', { ascending: false })
       .limit(4)
 
-    set({ missions: (data as unknown as Mission[]) ?? [], isLoading: false, lastFetched: now })
+    const missions = ((data as unknown as Mission[]) ?? [])
+
+    // Approved claim counts drive the slot progress bars on multi-claimer cards
+    const taskIds = missions.map((m) => m.id)
+    if (taskIds.length > 0) {
+      const { data: claimCounts } = await supabase
+        .from('task_claims')
+        .select('task_id')
+        .in('task_id', taskIds)
+        .eq('status', 'approved')
+
+      const approvedMap: Record<string, number> = {}
+      for (const row of claimCounts ?? []) {
+        approvedMap[row.task_id] = (approvedMap[row.task_id] ?? 0) + 1
+      }
+      missions.forEach((m) => {
+        m.approved_claimers = approvedMap[m.id] ?? 0
+      })
+    }
+
+    set({ missions, isLoading: false, lastFetched: now })
   },
 }))
