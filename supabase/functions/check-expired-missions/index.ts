@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     .select('id')
     .lt('deadline', new Date().toISOString())
     .not('deadline', 'is', null)
-    .not('status', 'in', '("completed","cancelled")')
+    .or('status.not.in.(completed,cancelled),refund_status.in.(pending,failed)')
 
   if (!expiredTasks || expiredTasks.length === 0) {
     return new Response(JSON.stringify({ processed: 0 }), {

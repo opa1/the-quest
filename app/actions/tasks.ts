@@ -561,13 +561,47 @@ export async function approveWork(taskId: string, claimId: string) {
       }
     }
 
+    // Atomically claim this payout attempt so a concurrent/retried approval
+    // can't send two payouts for the same claim.
+    const { data: lockedClaim } = await admin
+      .from("task_claims")
+      .update({ payout_status: "pending" })
+      .eq("id", claim.id)
+      .eq("status", "submitted")
+      .or("payout_status.is.null,payout_status.eq.failed")
+      .select("id")
+
+    if (!lockedClaim || lockedClaim.length === 0) {
+      return {
+        error: "payout_in_progress",
+        message: "A payout is already being processed for this submission.",
+      }
+    }
+
     const payoutResult = await sendAdaPayout(
       claimerProfile.wallet_address,
       task.ada_reward
     )
-    if ("error" in payoutResult) return payoutResult
+    if ("error" in payoutResult) {
+      await admin
+        .from("task_claims")
+        .update({
+          payout_status: "failed",
+          payout_last_error: payoutResult.message ?? payoutResult.error,
+        })
+        .eq("id", claim.id)
+      return payoutResult
+    }
 
     payoutTxHash = payoutResult.txHash
+
+    // Persist the tx hash immediately - before touching credits or anything
+    // else - so a failure in any later step never loses track of ADA that
+    // has already left the wallet.
+    await admin
+      .from("task_claims")
+      .update({ payout_status: "succeeded", cardano_tx_hash: payoutTxHash })
+      .eq("id", claim.id)
 
     await admin
       .from("profiles")
@@ -819,16 +853,21 @@ export async function processDeadlineRefund(
   const { data: task } = await adminClient
     .from("tasks")
     .select(
-      "id, title, created_by, max_claimers, reward_per_claimer, ada_reward, status, deadline"
+      "id, title, created_by, max_claimers, reward_per_claimer, ada_reward, status, deadline, refund_status"
     )
     .eq("id", taskId)
     .single()
 
   if (!task) return { success: false, error: "not_found" }
-  if (task.status === "completed" || task.status === "cancelled")
-    return { success: false, error: "already_closed" }
   if (!task.deadline || new Date(task.deadline) > new Date())
     return { success: false, error: "deadline_not_reached" }
+
+  // Closed and either no refund was ever needed, or it already succeeded -
+  // nothing left to do. A closed task with a pending/failed refund_status
+  // still needs to be retried below.
+  const isClosed = task.status === "completed" || task.status === "cancelled"
+  if (isClosed && task.refund_status !== "pending" && task.refund_status !== "failed")
+    return { success: false, error: "already_closed" }
 
   // Count approved claims
   const { count: approvedCount } = await adminClient
@@ -841,14 +880,18 @@ export async function processDeadlineRefund(
   const filledSlots = approvedCount ?? 0
   const unfilledSlots = totalSlots - filledSlots
 
-  // Close the task
-  await adminClient
-    .from("tasks")
-    .update({
-      status: unfilledSlots === 0 ? "completed" : "cancelled",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", taskId)
+  // Close the task for new claims. This only needs to happen once - closing
+  // is independent of whether the refund below succeeds, so it no longer
+  // gates retries.
+  if (!isClosed) {
+    await adminClient
+      .from("tasks")
+      .update({
+        status: unfilledSlots === 0 ? "completed" : "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", taskId)
+  }
 
   if (unfilledSlots <= 0) return { success: true, refundAmount: 0 }
 
@@ -856,36 +899,71 @@ export async function processDeadlineRefund(
   const rewardPerClaimer = task.reward_per_claimer ?? task.ada_reward ?? 0
   const refundLovelace = unfilledSlots * rewardPerClaimer
 
-  if (refundLovelace > 0) {
-    const { data: poster } = await adminClient
-      .from("profiles")
-      .select("wallet_address")
-      .eq("id", task.created_by)
-      .single()
+  if (refundLovelace <= 0) return { success: true, refundAmount: 0 }
 
-    if (poster?.wallet_address) {
-      try {
-        const refundResult = await sendAdaPayoutViaService(
-          poster.wallet_address,
-          refundLovelace
-        )
-        if ("txHash" in refundResult) {
-          await adminClient.from("task_logs").insert({
-            task_id: taskId,
-            user_id: task.created_by,
-            action: "cancelled",
-            notes: `Deadline refund: ${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""}`,
-            cardano_tx_hash: refundResult.txHash,
-          })
-        }
-      } catch (err) {
-        console.error("Refund payout failed:", err)
-        // Task is still cancelled. Refund failure is logged but not blocking.
-      }
-    }
+  const { data: poster } = await adminClient
+    .from("profiles")
+    .select("wallet_address")
+    .eq("id", task.created_by)
+    .single()
+
+  if (!poster?.wallet_address) {
+    await adminClient
+      .from("tasks")
+      .update({ refund_status: "failed", refund_last_error: "poster_no_wallet" })
+      .eq("id", taskId)
+    return { success: false, error: "poster_no_wallet" }
   }
 
-  // Notify poster
+  // Atomically claim this refund attempt so a concurrent/retried invocation
+  // can't send two refunds for the same task.
+  const { data: lockedTask } = await adminClient
+    .from("tasks")
+    .update({ refund_status: "pending" })
+    .eq("id", taskId)
+    .or("refund_status.is.null,refund_status.eq.failed")
+    .select("id")
+
+  if (!lockedTask || lockedTask.length === 0)
+    return { success: false, error: "refund_already_in_progress" }
+
+  try {
+    const refundResult = await sendAdaPayoutViaService(
+      poster.wallet_address,
+      refundLovelace
+    )
+    if ("txHash" in refundResult) {
+      await adminClient
+        .from("tasks")
+        .update({ refund_status: "succeeded" })
+        .eq("id", taskId)
+      await adminClient.from("task_logs").insert({
+        task_id: taskId,
+        user_id: task.created_by,
+        action: "cancelled",
+        notes: `Deadline refund: ${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""}`,
+        cardano_tx_hash: refundResult.txHash,
+      })
+    } else {
+      await adminClient
+        .from("tasks")
+        .update({ refund_status: "failed", refund_last_error: refundResult.message ?? refundResult.error })
+        .eq("id", taskId)
+      return { success: false, error: "refund_failed" }
+    }
+  } catch (err) {
+    console.error("Refund payout failed:", err)
+    await adminClient
+      .from("tasks")
+      .update({
+        refund_status: "failed",
+        refund_last_error: err instanceof Error ? err.message : "unknown_error",
+      })
+      .eq("id", taskId)
+    return { success: false, error: "refund_failed" }
+  }
+
+  // Notify poster - only reached once the refund has actually succeeded.
   await createNotification({
     userId: task.created_by,
     type: "deadline_refund",
