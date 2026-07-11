@@ -20,6 +20,9 @@ importers:
       '@lucid-evolution/provider':
         specifier: ^0.1.92
         version: 0.1.92(@harmoniclabs/bytestring@1.0.0)(@harmoniclabs/cbor@1.6.6)(@harmoniclabs/crypto@0.2.5)(@harmoniclabs/pair@1.0.0)(rxjs@7.8.2)
+      '@lucid-evolution/utils':
+        specifier: 0.1.67
+        version: 0.1.67(@harmoniclabs/bytestring@1.0.0)(@harmoniclabs/cbor@1.6.6)(@harmoniclabs/crypto@0.2.5)(@harmoniclabs/pair@1.0.0)(rxjs@7.8.2)
       '@supabase/ssr':
         specifier: ^0.10.3
         version: 0.10.3(@supabase/supabase-js@2.106.0)

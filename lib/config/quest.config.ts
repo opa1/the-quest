@@ -1,5 +1,4 @@
 import { BicepsFlexed, Flame, Zap } from "lucide-react"
-import { ADA_LABEL } from '@/lib/utils/currency'
 
 export const QUEST_CONFIG = {
   stats: {
@@ -514,9 +513,9 @@ export const QUEST_CONFIG = {
       descriptionMaxLength: 1000,
       categoryLabel: "CATEGORY",
       difficultyLabel: "DIFFICULTY",
-      adaRewardLabel: `${ADA_LABEL} REWARD`,
+      adaRewardLabel: "{ADA} REWARD",
       adaRewardPlaceholder: "0",
-      adaRewardHelper: `Amount in ${ADA_LABEL} the claimer will receive on approval`,
+      adaRewardHelper: "Amount in {ADA} the claimer will receive on approval",
       proofTypeLabel: "PROOF REQUIRED",
       submitLabel: "DEPLOY MISSION",
       submittingLabel: "DEPLOYING...",
@@ -553,7 +552,7 @@ export const QUEST_CONFIG = {
     previewTitle: "MISSION PREVIEW",
     previewSubtext: "This is how your mission will appear on the Bounty Board.",
     processingPaymentLabel: "PROCESSING PAYMENT...",
-    adaRequiredError: `${ADA_LABEL} reward is required. Minimum is 2 ${ADA_LABEL}.`,
+    adaRequiredError: "{ADA} reward is required. Minimum is 2 {ADA}.",
     detectingDifficulty: "Detecting difficulty...",
     difficultyDetected: "Difficulty detected",
     difficultyDetectFailed: "Could not detect difficulty. Please select manually.",

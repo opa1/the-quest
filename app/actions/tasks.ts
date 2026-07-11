@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { sendAdaPayoutViaService } from "@/lib/cardano/server"
+import { verifyDepositCoversBounty } from "@/lib/cardano/verify-deposit"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getActiveNetwork } from "@/lib/config/network.server"
+import { type Network } from "@/lib/config/network"
 import { createNotification } from "@/lib/utils/notify"
 import { formatAda } from "@/lib/utils/currency"
 
@@ -55,7 +58,7 @@ export async function claimTask(taskId: string) {
 
   if (!user) return { error: "not_authenticated" }
 
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   const { data: task } = await admin
     .from("tasks")
@@ -215,7 +218,7 @@ export async function dropTask(taskId: string) {
 
   if (!user) return { error: "not_authenticated" }
 
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   const { data: task } = await admin
     .from("tasks")
@@ -344,6 +347,25 @@ export async function createMission(formData: {
     }
   }
 
+  // One on-chain deposit funds exactly one mission. Without this, a poster
+  // could reference the same deposit tx across N missions and the platform
+  // would pay out N times for a single escrow. (The solvency of each deposit
+  // is verified on-chain at payout/refund time — see verifyDepositCoversBounty.)
+  if (formData.deposit_tx_hash) {
+    const admin = createAdminClient(await getActiveNetwork())
+    const { data: existingDeposit } = await admin
+      .from("tasks")
+      .select("id")
+      .eq("deposit_tx_hash", formData.deposit_tx_hash)
+      .maybeSingle()
+    if (existingDeposit) {
+      return {
+        error: "deposit_reused",
+        message: "This escrow deposit has already been used for another mission.",
+      }
+    }
+  }
+
   const { data: task, error } = await supabase
     .from("tasks")
     .insert({
@@ -394,7 +416,7 @@ export async function submitWork(
   if (!user)
     return { error: "not_authenticated", message: "You must be signed in." }
 
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   const { data: task } = await admin
     .from("tasks")
@@ -517,11 +539,14 @@ export async function approveWork(taskId: string, claimId: string) {
   if (!user)
     return { error: "not_authenticated", message: "You must be signed in." }
 
-  const admin = createAdminClient()
+  const network = await getActiveNetwork()
+  const admin = createAdminClient(network)
 
   const { data: task } = await admin
     .from("tasks")
-    .select("id, title, created_by, reward_credits, ada_reward, max_claimers")
+    .select(
+      "id, title, created_by, reward_credits, ada_reward, max_claimers, reward_per_claimer, deposit_tx_hash"
+    )
     .eq("id", taskId)
     .single()
 
@@ -561,6 +586,21 @@ export async function approveWork(taskId: string, claimId: string) {
       }
     }
 
+    // Never release ADA the platform never received: confirm on-chain that the
+    // poster's escrow deposit covers this mission's full bounty. Fails closed.
+    const totalBounty =
+      maxClaimers > 1
+        ? maxClaimers * (task.reward_per_claimer ?? 0)
+        : task.ada_reward
+    const depositCheck = await verifyDepositCoversBounty(
+      task.deposit_tx_hash,
+      totalBounty,
+      network
+    )
+    if (!depositCheck.ok) {
+      return { error: depositCheck.error, message: depositCheck.message }
+    }
+
     // Atomically claim this payout attempt so a concurrent/retried approval
     // can't send two payouts for the same claim.
     const { data: lockedClaim } = await admin
@@ -580,7 +620,8 @@ export async function approveWork(taskId: string, claimId: string) {
 
     const payoutResult = await sendAdaPayout(
       claimerProfile.wallet_address,
-      task.ada_reward
+      task.ada_reward,
+      network
     )
     if ("error" in payoutResult) {
       await admin
@@ -668,7 +709,7 @@ export async function approveWork(taskId: string, claimId: string) {
   if (claim.user_id) {
     const adaText =
       task.ada_reward > 0
-        ? ` ${formatAda(task.ada_reward)} has been sent to your wallet.`
+        ? ` ${formatAda(task.ada_reward, network)} has been sent to your wallet.`
         : ""
     await createNotification({
       userId: claim.user_id,
@@ -696,7 +737,7 @@ export async function rejectWork(
   if (!user)
     return { error: "not_authenticated", message: "You must be signed in." }
 
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   const { data: task } = await admin
     .from("tasks")
@@ -835,7 +876,7 @@ export async function markTaskNotificationsRead(taskId: string) {
   } = await supabase.auth.getUser()
   if (!user) return
 
-  const adminClient = createAdminClient()
+  const adminClient = createAdminClient(await getActiveNetwork())
   // Match both `/tasks/{id}/review` and `/tasks/{id}/review?claim=…`.
   await adminClient
     .from("notifications")
@@ -846,14 +887,16 @@ export async function markTaskNotificationsRead(taskId: string) {
 }
 
 export async function processDeadlineRefund(
-  taskId: string
+  taskId: string,
+  // Non-request context (cron): the caller passes the task's own network.
+  network: Network = "Preprod"
 ): Promise<{ success: boolean; refundAmount?: number; error?: string }> {
-  const adminClient = createAdminClient()
+  const adminClient = createAdminClient(network)
 
   const { data: task } = await adminClient
     .from("tasks")
     .select(
-      "id, title, created_by, max_claimers, reward_per_claimer, ada_reward, status, deadline, refund_status"
+      "id, title, created_by, max_claimers, reward_per_claimer, ada_reward, status, deadline, refund_status, deposit_tx_hash"
     )
     .eq("id", taskId)
     .single()
@@ -915,6 +958,25 @@ export async function processDeadlineRefund(
     return { success: false, error: "poster_no_wallet" }
   }
 
+  // Never refund ADA the platform never received: confirm on-chain that the
+  // escrow deposit covered the full bounty before sending anything back.
+  const totalBounty = totalSlots * rewardPerClaimer
+  const depositCheck = await verifyDepositCoversBounty(
+    task.deposit_tx_hash,
+    totalBounty,
+    network
+  )
+  if (!depositCheck.ok) {
+    await adminClient
+      .from("tasks")
+      .update({
+        refund_status: "failed",
+        refund_last_error: depositCheck.error,
+      })
+      .eq("id", taskId)
+    return { success: false, error: depositCheck.error }
+  }
+
   // Atomically claim this refund attempt so a concurrent/retried invocation
   // can't send two refunds for the same task.
   const { data: lockedTask } = await adminClient
@@ -930,7 +992,8 @@ export async function processDeadlineRefund(
   try {
     const refundResult = await sendAdaPayoutViaService(
       poster.wallet_address,
-      refundLovelace
+      refundLovelace,
+      network
     )
     if ("txHash" in refundResult) {
       await adminClient
@@ -966,6 +1029,7 @@ export async function processDeadlineRefund(
   // Notify poster - only reached once the refund has actually succeeded.
   await createNotification({
     userId: task.created_by,
+    network,
     type: "deadline_refund",
     category: "reward",
     title: "Mission Deadline Reached",
@@ -982,7 +1046,8 @@ export async function processDeadlineRefund(
 
 async function sendAdaPayout(
   claimerWalletAddress: string,
-  adaReward: number
+  adaReward: number,
+  network: Network
 ): Promise<{ txHash: string } | { error: string; message: string }> {
-  return sendAdaPayoutViaService(claimerWalletAddress, adaReward)
+  return sendAdaPayoutViaService(claimerWalletAddress, adaReward, network)
 }

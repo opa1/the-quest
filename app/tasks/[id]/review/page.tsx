@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getActiveNetwork } from '@/lib/config/network.server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -26,7 +27,7 @@ export default async function ReviewPage({ params, searchParams }: ReviewPagePro
   const { id } = await params
   const { claim: claimIdParam } = await searchParams
   const supabase = await createClient()
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')

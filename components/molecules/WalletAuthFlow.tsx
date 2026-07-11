@@ -8,7 +8,7 @@ import { useCardano } from '@cardano-foundation/cardano-connect-with-wallet'
 import { NetworkType } from '@cardano-foundation/cardano-connect-with-wallet-core'
 import { walletSignIn } from '@/app/actions/auth'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
-import { CARDANO_NETWORK } from '@/lib/config/cardano.config'
+import { activeNetworkFromCookie } from '@/lib/config/network'
 
 const WalletSelector = dynamic(
   () => import('@/components/molecules/WalletSelector'),
@@ -22,8 +22,6 @@ const WalletSelector = dynamic(
   }
 )
 
-const WALLET_NETWORK = CARDANO_NETWORK === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
-
 type AuthStep = 'connecting' | 'signing' | 'verifying' | 'error'
 
 interface WalletAuthFlowProps {
@@ -32,8 +30,10 @@ interface WalletAuthFlowProps {
 }
 
 export default function WalletAuthFlow({ onSuccess, onBack }: WalletAuthFlowProps) {
+  const walletNetwork =
+    activeNetworkFromCookie() === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
   const { isConnected, usedAddresses, signMessage, disconnect } = useCardano({
-    limitNetwork: WALLET_NETWORK,
+    limitNetwork: walletNetwork,
   })
   const [step, setStep] = useState<AuthStep>('connecting')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

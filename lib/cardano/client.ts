@@ -1,13 +1,18 @@
 import { Lucid, Blockfrost } from '@lucid-evolution/lucid'
-import { CARDANO_NETWORK, BLOCKFROST_URL } from '@/lib/config/cardano.config'
+import { activeNetworkFromCookie } from '@/lib/config/network'
 
 export async function getClientLucid() {
-  const projectId = process.env.NEXT_PUBLIC_BLOCKFROST_PROJECT_ID
-  if (!projectId) throw new Error('Blockfrost project ID not configured.')
+  // Route all Blockfrost traffic through our own server proxy so the project id
+  // never ships to the browser. The proxy injects the real key server-side.
+  // See app/api/blockfrost/[...path]/route.ts.
+  const proxyUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/api/blockfrost`
+      : '/api/blockfrost'
 
   const lucid = await Lucid(
-    new Blockfrost(BLOCKFROST_URL, projectId),
-    CARDANO_NETWORK
+    new Blockfrost(proxyUrl, ''),
+    activeNetworkFromCookie()
   )
 
   return lucid

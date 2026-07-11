@@ -12,20 +12,17 @@ import { ChainStatusPanel } from '@/components/molecules/ChainStatusPanel'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
-import { CARDANO_NETWORK } from '@/lib/config/cardano.config'
+import { explorerTxUrl } from '@/lib/config/cardano.config'
+import { useAda } from '@/lib/hooks/useAda'
 import { fetchLedgerTransactions, fetchLedgerStats } from '@/lib/utils/ledger'
 import type { LedgerTransaction, LedgerStats } from '@/lib/utils/ledger'
-
-const explorerBase =
-  CARDANO_NETWORK === 'Mainnet'
-    ? 'https://cardanoscan.io/transaction'
-    : 'https://preprod.cardanoscan.io/transaction'
 
 function truncateHash(hash: string): string {
   return `${hash.slice(0, 8)}...${hash.slice(-6)}`
 }
 
 function TxCard({ tx }: { tx: LedgerTransaction }) {
+  const { network } = useAda()
   const isConfirmed = tx.status === 'confirmed'
   return (
     <Card className="flex flex-col gap-3 rounded-[14px] border border-border/50 bg-card p-5">
@@ -51,7 +48,7 @@ function TxCard({ tx }: { tx: LedgerTransaction }) {
 
       {isConfirmed && tx.cardano_tx_hash && (
         <Link
-          href={`${explorerBase}/${tx.cardano_tx_hash}`}
+          href={explorerTxUrl(network, tx.cardano_tx_hash)}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 rounded-[8px] border border-border/40 bg-background/60 px-3 py-2 font-mono text-[11px] text-muted-foreground hover:text-foreground transition-colors"

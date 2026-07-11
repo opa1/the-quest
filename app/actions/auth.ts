@@ -2,13 +2,28 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { getActiveNetwork } from "@/lib/config/network.server"
+import { type Network } from "@/lib/config/network"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import crypto from "crypto"
 
-function derivePassword(walletAddress: string): string {
-  const secret = process.env.WALLET_AUTH_SECRET ?? ""
-  return crypto.createHmac("sha256", secret).update(walletAddress).digest("hex")
+// Wallet-user passwords are derived from a per-network secret. Testnet must keep
+// using the same secret as before (WALLET_AUTH_SECRET_TESTNET == the legacy
+// WALLET_AUTH_SECRET) or existing wallet logins break; mainnet uses its own.
+function walletAuthSecret(network: Network): string {
+  const perNetwork =
+    network === "Mainnet"
+      ? process.env.WALLET_AUTH_SECRET_MAINNET
+      : process.env.WALLET_AUTH_SECRET_TESTNET
+  return perNetwork ?? process.env.WALLET_AUTH_SECRET ?? ""
+}
+
+function derivePassword(walletAddress: string, network: Network): string {
+  return crypto
+    .createHmac("sha256", walletAuthSecret(network))
+    .update(walletAddress)
+    .digest("hex")
 }
 
 export async function walletSignIn(
@@ -18,7 +33,9 @@ export async function walletSignIn(
 ): Promise<
   { success: true; redirectTo: string } | { error: string; message: string }
 > {
-  const adminClient = createAdminClient()
+  // Everything here acts on the currently-selected network's database.
+  const network = await getActiveNetwork()
+  const adminClient = createAdminClient(network)
 
   // Fetch and validate nonce
   const { data: nonceRow } = await adminClient
@@ -78,7 +95,7 @@ export async function walletSignIn(
     }
 
     const email = `${walletAddress}@wallet.thequest.gg`
-    const password = derivePassword(walletAddress)
+    const password = derivePassword(walletAddress, network)
 
     const supabase = await createClient()
     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -101,7 +118,7 @@ export async function walletSignIn(
 
   // New wallet user -- create Supabase auth user
   const email = `${walletAddress}@wallet.thequest.gg`
-  const password = derivePassword(walletAddress)
+  const password = derivePassword(walletAddress, network)
 
   const { data: newAuthUser, error: createError } =
     await adminClient.auth.admin.createUser({
@@ -121,10 +138,13 @@ export async function walletSignIn(
     }
   }
 
-  // Create profile
+  // Create profile. wallet_key_hash is the network-agnostic identity used to
+  // match this wallet to its profile on the other network during migration.
+  const { walletKeyHash } = await import("@/lib/cardano/identity")
   await adminClient.from("profiles").insert({
     id: newAuthUser.user.id,
     wallet_address: walletAddress,
+    wallet_key_hash: await walletKeyHash(walletAddress),
     signup_method: "wallet",
     onboarded: false,
   })

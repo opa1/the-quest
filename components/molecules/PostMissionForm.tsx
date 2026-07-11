@@ -16,7 +16,8 @@ import { useCardano } from "@cardano-foundation/cardano-connect-with-wallet"
 import { NetworkType } from "@cardano-foundation/cardano-connect-with-wallet-core"
 import { createMission } from "@/app/actions/tasks"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
-import { CARDANO_NETWORK } from "@/lib/config/cardano.config"
+import { activeNetworkFromCookie } from "@/lib/config/network"
+import { useAda } from "@/lib/hooks/useAda"
 import { randomXpForDifficulty } from "@/lib/utils/xp"
 import type {
   PostMissionForm as FormType,
@@ -31,16 +32,18 @@ type TxState =
   | "confirmed"
   | "failed"
 
-const WALLET_NETWORK =
-  CARDANO_NETWORK === "Mainnet" ? NetworkType.MAINNET : NetworkType.TESTNET
-
 interface PostMissionFormProps {
   hasWallet: boolean
 }
 
 export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
   const router = useRouter()
-  const { enabledWallet } = useCardano({ limitNetwork: WALLET_NETWORK })
+  const { adaLabel } = useAda()
+  const walletNetwork =
+    activeNetworkFromCookie() === "Mainnet"
+      ? NetworkType.MAINNET
+      : NetworkType.TESTNET
+  const { enabledWallet } = useCardano({ limitNetwork: walletNetwork })
   const [form, setForm] = useState<FormType>({
     title: "",
     description: "",
@@ -119,7 +122,7 @@ export default function PostMissionForm({ hasWallet }: PostMissionFormProps) {
         return
       }
     } else if (!form.ada_reward || form.ada_reward <= 0) {
-      setError({ field: "submit", message: QUEST_CONFIG.postMission.adaRequiredError })
+      setError({ field: "submit", message: QUEST_CONFIG.postMission.adaRequiredError.replaceAll("{ADA}", adaLabel) })
       return
     }
 

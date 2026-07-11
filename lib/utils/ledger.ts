@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
-import { ADA_LABEL } from '@/lib/utils/currency'
+import { adaLabel } from '@/lib/utils/currency'
+import { activeNetworkFromCookie } from '@/lib/config/network'
 
 export type LedgerTransaction = {
   id: string
@@ -76,6 +77,6 @@ export async function fetchLedgerStats(): Promise<LedgerStats> {
     totalXpAwarded,
     openMissions,
     totalAdaEarned,
-    adaLabel: ADA_LABEL,
+    adaLabel: adaLabel(activeNetworkFromCookie()),
   }
 }

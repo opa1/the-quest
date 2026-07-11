@@ -1,13 +1,20 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
+import { ACTIVE_NETWORK_COOKIE, normalizeNetwork } from '@/lib/config/network'
+import { supabasePublicConfig } from '@/lib/supabase/config'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
+  const network = normalizeNetwork(
+    request.cookies.get(ACTIVE_NETWORK_COOKIE)?.value
+  )
+  const { url, anonKey } = supabasePublicConfig(network)
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {

@@ -4,6 +4,8 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const appUrl = Deno.env.get('APP_URL')!
 const cronSecret = Deno.env.get('CRON_SECRET')!
+// Set per deployment: 'Mainnet' on the mainnet project, 'Preprod' on testnet.
+const network = Deno.env.get('NETWORK') ?? 'Preprod'
 
 Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization')
@@ -38,7 +40,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
           'x-cron-secret': cronSecret,
         },
-        body: JSON.stringify({ taskId: task.id }),
+        body: JSON.stringify({ taskId: task.id, network }),
       })
       if (res.ok) processed++
       else errors.push(`${task.id}: ${res.status}`)

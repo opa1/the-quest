@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getActiveNetwork } from "@/lib/config/network.server"
 import { revalidatePath } from "next/cache"
 
 export async function updateUsername(username: string) {
@@ -77,7 +78,7 @@ export async function linkWalletWithSignature(
   key: string,
   nonce: string
 ): Promise<{ success: true } | { error: string; message: string }> {
-  const adminClient = createAdminClient()
+  const adminClient = createAdminClient(await getActiveNetwork())
 
   const { data: nonceRow } = await adminClient
     .from('auth_nonces')

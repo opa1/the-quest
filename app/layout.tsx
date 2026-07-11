@@ -33,7 +33,7 @@ export const metadata: Metadata = {
       "The Quest | Complete Tasks. Earn Credits. Build Your On-Chain Legacy.",
     description:
       "Claim tasks across design, writing, code and more. Get paid in credits. Every mission you complete is recorded permanently on the Cardano blockchain. Start building your legacy today.",
-    url: "https://thequestgg.vercel.app",
+    url: "https://thequesters.fun",
     siteName: "The Quest",
     images: [
       {
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   alternates: {
-    canonical: "https://thequestgg.vercel.app",
+    canonical: "https://thequesters.fun",
   },
 }
 

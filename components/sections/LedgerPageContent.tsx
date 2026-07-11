@@ -7,15 +7,16 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import TimeAgo from '@/components/atoms/TimeAgo'
-import { formatAda } from '@/lib/utils/currency'
+import { useAda } from '@/lib/hooks/useAda'
 import { fetchLedgerTransactions } from '@/lib/utils/ledger'
-import { CARDANO_NETWORK } from '@/lib/config/cardano.config'
 import type { LedgerTransaction, LedgerStats } from '@/lib/utils/ledger'
+import type { Network } from '@/lib/config/network'
 
-const explorerBase =
-  CARDANO_NETWORK === 'Mainnet'
+function explorerBaseFor(network: Network): string {
+  return network === 'Mainnet'
     ? 'https://cardanoscan.io/transaction'
     : 'https://preprod.cardanoscan.io/transaction'
+}
 
 function truncateHash(hash: string): string {
   return `${hash.slice(0, 10)}...${hash.slice(-8)}`
@@ -50,6 +51,8 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 function MissionCard({ tx }: { tx: LedgerTransaction }) {
+  const { network, formatAda } = useAda()
+  const explorerBase = explorerBaseFor(network)
   return (
     <Card className="flex flex-col gap-3 rounded-[14px] border border-border/50 bg-card p-5">
       <div className="flex items-start justify-between gap-3">
@@ -107,6 +110,8 @@ export function LedgerPageContent({
   initialStats,
   totalCount,
 }: LedgerPageContentProps) {
+  const { network, formatAda } = useAda()
+  const explorerBase = explorerBaseFor(network)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const hasMore = transactions.length < totalCount

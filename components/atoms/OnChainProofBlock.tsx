@@ -1,10 +1,13 @@
+"use client"
+
 import { Link2 } from "lucide-react"
 import { TxHashBlock } from "@/components/atoms/TxHashBlock"
 import { TxStatusBadge } from "@/components/atoms/TxStatusBadge"
 import TimeAgo from "@/components/atoms/TimeAgo"
 import { TextLink } from "@/components/atoms/TextLink"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
-import { CARDANO_NETWORK } from "@/lib/config/cardano.config"
+import { explorerTxUrl } from "@/lib/config/cardano.config"
+import { useAda } from "@/lib/hooks/useAda"
 import { cn } from "@/lib/utils"
 
 interface OnChainProofBlockProps {
@@ -18,6 +21,7 @@ export default function OnChainProofBlock({
   completedAt,
   className,
 }: OnChainProofBlockProps) {
+  const { network } = useAda()
   return (
     <div
       className={cn(
@@ -41,11 +45,7 @@ export default function OnChainProofBlock({
       </div>
       <TextLink
         label="VIEW ON CARDANOSCAN"
-        href={
-          CARDANO_NETWORK === "Mainnet"
-            ? `https://cardanoscan.io/transaction/${txHash}`
-            : `https://preprod.cardanoscan.io/transaction/${txHash}`
-        }
+        href={explorerTxUrl(network, txHash)}
       />
     </div>
   )

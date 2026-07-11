@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import OnboardingForm from "./_components/OnboardingForm"
+import MigrationOfferGate from "@/components/molecules/MigrationOfferGate"
+
+const NETWORK_SWITCH_ENABLED =
+  process.env.NEXT_PUBLIC_NETWORK_SWITCH_ENABLED === "true"
 
 interface OnboardingPageProps {
   searchParams: Promise<{
@@ -54,6 +58,10 @@ export default async function OnboardingPage({
         signupMethod={signupMethod}
         preConnectedWallet={isWalletUser ? (profile?.wallet_address ?? null) : null}
       />
+      {/* A user with a profile on the other network is offered migration here,
+          before manually onboarding. Migrating carries onboarded=true, so the
+          page's own guard then redirects them into the realm. */}
+      {NETWORK_SWITCH_ENABLED && <MigrationOfferGate blockWhileChecking />}
     </main>
   )
 }

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
-import { ADA_LABEL } from "@/lib/utils/currency"
+import { adaLabel } from "@/lib/utils/currency"
+import { getActiveNetwork } from "@/lib/config/network.server"
 import { LedgerPageContent } from "@/components/sections/LedgerPageContent"
 import type { LedgerTransaction, LedgerStats } from "@/lib/utils/ledger"
 
@@ -80,7 +81,7 @@ export default async function LedgerPage() {
     totalXpAwarded,
     openMissions: openCountRes.count ?? 0,
     totalAdaEarned,
-    adaLabel: ADA_LABEL,
+    adaLabel: adaLabel(await getActiveNetwork()),
   }
 
   return (

@@ -1,4 +1,5 @@
-import { PLATFORM_WALLET_ADDRESS, MIN_ADA_BOUNTY } from '@/lib/config/cardano.config'
+import { platformWalletAddress, MIN_ADA_BOUNTY } from '@/lib/config/cardano.config'
+import { activeNetworkFromCookie } from '@/lib/config/network'
 
 export async function depositBounty(
   walletApi: unknown,
@@ -12,7 +13,8 @@ export async function depositBounty(
       }
     }
 
-    if (!PLATFORM_WALLET_ADDRESS) {
+    const platformAddress = platformWalletAddress(activeNetworkFromCookie())
+    if (!platformAddress) {
       return {
         error: 'no_platform_wallet',
         message: 'Platform wallet not configured.',
@@ -26,7 +28,7 @@ export async function depositBounty(
 
     const tx = await lucid
       .newTx()
-      .pay.ToAddress(PLATFORM_WALLET_ADDRESS, { lovelace })
+      .pay.ToAddress(platformAddress, { lovelace })
       .complete()
 
     const signedTx = await tx.sign.withWallet().complete()
