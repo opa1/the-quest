@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import AuthProvider from "@/components/providers/AuthProvider"
 import { Suspense } from "react"
 import AuthDialogTrigger from "./_components/AuthDialogTrigger"
+import { MainnetWelcomeDialog } from "@/components/molecules/MainnetWelcomeDialog"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -98,7 +99,8 @@ export default function RootLayout({
             <Suspense>
               <AuthDialogTrigger />
             </Suspense>
-            
+            <MainnetWelcomeDialog />
+
             {children}
           </AuthProvider>
         </ThemeProvider>

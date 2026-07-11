@@ -6,10 +6,10 @@ export const QUEST_CONFIG = {
   },
   nav: {
     links: [
-      { label: "Bounty Board", href: "#bounty-board" },
-      { label: "Arsenal", href: "#arsenal" },
-      { label: "Guild", href: "#guild" },
-      { label: "The Ledger", href: "#the-ledger" },
+      { label: "Bounty Board", href: "/#bounty-board" },
+      { label: "Arsenal", href: "/#arsenal" },
+      { label: "Guild", href: "/#guild" },
+      { label: "The Ledger", href: "/#the-ledger" },
       { label: "Ledger", href: "/ledger" },
     ],
   },
@@ -284,6 +284,10 @@ export const QUEST_CONFIG = {
       { label: "SUPPORT", href: "/support" },
     ],
     copyright: "© 2024 THE QUEST PROTOCOL. ALL RIGHTS RESERVED.",
+  },
+  social: {
+    x: "https://x.com/the_questgg",
+    discord: "https://discord.gg/tXSnBVqFp",
   },
   realmNav: [
     { label: "Realm", href: "/realm", icon: "Home" },

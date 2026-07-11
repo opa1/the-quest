@@ -4,7 +4,24 @@ import { QUEST_CONFIG } from '@/lib/config/quest.config'
 import { ACTIVE_NETWORK_COOKIE, normalizeNetwork } from '@/lib/config/network'
 import { supabasePublicConfig } from '@/lib/supabase/config'
 
+// Flip on during a migration/deploy to send everyone to the maintenance page.
+const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true'
+
 export async function proxy(request: NextRequest) {
+  // Hard gate: while in maintenance, only the maintenance page (and its status
+  // endpoint) are reachable. Remember where the user was so we can send them
+  // back once maintenance ends.
+  const path = request.nextUrl.pathname
+  if (
+    MAINTENANCE_MODE &&
+    path !== '/maintenance' &&
+    path !== '/api/maintenance'
+  ) {
+    const url = new URL('/maintenance', request.url)
+    url.searchParams.set('from', path + request.nextUrl.search)
+    return NextResponse.redirect(url)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const network = normalizeNetwork(
