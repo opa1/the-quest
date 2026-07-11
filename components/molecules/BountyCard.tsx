@@ -8,7 +8,7 @@ import { XPReward } from "@/components/atoms/XPReward"
 import { AdaReward } from "@/components/atoms/AdaReward"
 import ProofTypeBadge from "@/components/atoms/ProofTypeBadge"
 import ShareMissionButton from "@/components/molecules/ShareMissionButton"
-import { Clock } from "lucide-react"
+import { Clock, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD"
@@ -56,6 +56,7 @@ export function BountyCard({
 }: BountyCardProps) {
   const isReviewable =
     taskStatus === "submitted" && currentUserId && currentUserId === createdBy
+  const isCompleted = taskStatus === "completed"
 
   const isMulti = (maxClaimers ?? 1) > 1
   const displayLovelace =
@@ -77,6 +78,7 @@ export function BountyCard({
           "flex h-full cursor-pointer flex-col gap-4 rounded-[16px] border border-border bg-card p-6 transition-colors duration-200 hover:border-primary/50",
           featured &&
             "border-primary shadow-[0_0_24px_oklch(0.795_0.184_86.047/0.2)]",
+          isCompleted && "opacity-60 hover:opacity-100",
           className
         )}
       >
@@ -90,7 +92,14 @@ export function BountyCard({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {proofType && <ProofTypeBadge proofType={proofType} />}
+            {isCompleted ? (
+              <span className="flex items-center gap-1 rounded-full border border-green-800 bg-green-950 px-2 py-0.5 text-[10px] font-bold tracking-wider text-green-400 uppercase">
+                <CheckCircle2 className="h-3 w-3" />
+                Completed
+              </span>
+            ) : (
+              proofType && <ProofTypeBadge proofType={proofType} />
+            )}
             <DifficultyBadge difficulty={difficulty} />
           </div>
         </div>

@@ -29,12 +29,15 @@ export type MissionCategory =
 export type MissionDifficulty = 'ALL' | 'easy' | 'medium' | 'hard'
 export type MissionSort = 'newest' | 'oldest' | 'reward'
 export type MissionView = 'ALL' | 'MINE'
+// ALL: open + completed (date order) · OPEN: hide completed · OPEN_FIRST: completed pushed to the bottom
+export type MissionStatusFilter = 'ALL' | 'OPEN' | 'OPEN_FIRST'
 
 export interface MissionFilters {
   viewMode: MissionView
   category: MissionCategory
   difficulty: MissionDifficulty
   sort: MissionSort
+  status: MissionStatusFilter
 }
 
 export interface ContributionRecord {

@@ -32,7 +32,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         proof_type, status, created_at, created_by,
         profiles!tasks_created_by_fkey(username, avatar_url)
       `)
-      .eq('status', 'open')
+      .in('status', ['open', 'completed'])
       .order('created_at', { ascending: false })
       .limit(4)
 

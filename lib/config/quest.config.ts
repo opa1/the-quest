@@ -461,6 +461,11 @@ export const QUEST_CONFIG = {
       { label: "Oldest First", value: "oldest" },
       { label: "Highest Reward", value: "reward" },
     ],
+    statusOptions: [
+      { label: "All Missions", value: "ALL" },
+      { label: "Open Only", value: "OPEN" },
+      { label: "Open First", value: "OPEN_FIRST" },
+    ],
     pageSize: 12,
   } as const,
   record: {
