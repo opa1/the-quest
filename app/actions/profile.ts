@@ -40,38 +40,6 @@ export async function updateUsername(username: string) {
   return { success: true }
 }
 
-export async function updateWalletAddress(walletAddress: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "not_authenticated" }
-
-  const { data: existing } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("wallet_address", walletAddress)
-    .neq("id", user.id)
-    .single()
-
-  if (existing) return { error: "wallet_already_linked" }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      wallet_address: walletAddress,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id)
-
-  if (error) return { error: "update_failed" }
-
-  revalidatePath("/profile")
-  revalidatePath("/record")
-
-  return { success: true }
-}
-
 export async function linkWalletWithSignature(
   walletAddress: string,
   signature: string,
@@ -120,20 +88,43 @@ export async function linkWalletWithSignature(
   } = await supabase.auth.getUser()
   if (!user) return { error: 'not_authenticated', message: 'You must be signed in.' }
 
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('wallet_address', walletAddress)
-    .neq('id', user.id)
-    .single()
+  // Reject if this wallet already belongs to another account — matched by its
+  // network-agnostic key hash (a wallet has many addresses), not just the exact
+  // address. Uses the admin client so RLS can't hide a conflicting profile.
+  const { walletKeyHash } = await import('@/lib/cardano/identity')
+  const keyHash = await walletKeyHash(walletAddress)
 
-  if (existing) {
+  let conflict: { id: string } | null = null
+  if (keyHash) {
+    const { data } = await adminClient
+      .from('profiles')
+      .select('id')
+      .eq('wallet_key_hash', keyHash)
+      .neq('id', user.id)
+      .maybeSingle()
+    conflict = data
+  }
+  if (!conflict) {
+    const { data } = await adminClient
+      .from('profiles')
+      .select('id')
+      .eq('wallet_address', walletAddress)
+      .neq('id', user.id)
+      .maybeSingle()
+    conflict = data
+  }
+
+  if (conflict) {
     return { error: 'wallet_already_linked', message: 'This wallet is already linked to another account.' }
   }
 
   const { error } = await supabase
     .from('profiles')
-    .update({ wallet_address: walletAddress, updated_at: new Date().toISOString() })
+    .update({
+      wallet_address: walletAddress,
+      wallet_key_hash: keyHash,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', user.id)
 
   if (error) return { error: 'update_failed', message: 'Failed to link wallet. Please try again.' }
@@ -153,7 +144,11 @@ export async function disconnectWallet() {
 
   const { error } = await supabase
     .from("profiles")
-    .update({ wallet_address: null, updated_at: new Date().toISOString() })
+    .update({
+      wallet_address: null,
+      wallet_key_hash: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", user.id)
 
   if (error) return { error: "update_failed" }
