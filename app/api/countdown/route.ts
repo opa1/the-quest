@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-// Authoritative countdown status the /countdown page polls when its local timer
-// hits zero — so it only enters the site once the *server* agrees the countdown
-// is over (avoids client clock-skew redirect loops). Exempt from the gate.
+// Authoritative countdown status the Countdown component checks when its local
+// timer hits zero — so it only reloads into the app once the *server* agrees the
+// countdown is over (avoids client clock-skew reload loops).
 export async function GET() {
   const supabase = await createClient()
   const { data } = await supabase

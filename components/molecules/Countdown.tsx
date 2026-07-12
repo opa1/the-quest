@@ -15,7 +15,7 @@ function remaining(endsAt: number) {
   }
 }
 
-export function CountdownView({ endsAt }: { endsAt: number }) {
+export function Countdown({ endsAt }: { endsAt: number }) {
   const [t, setT] = useState(() => remaining(endsAt))
 
   useEffect(() => {
@@ -24,15 +24,16 @@ export function CountdownView({ endsAt }: { endsAt: number }) {
       setT(next)
       if (next.done) {
         clearInterval(id)
-        // Confirm with the server before entering, so a fast client clock can't
-        // bounce off the still-active gate.
+        // Confirm with the server before revealing the app, so a fast client
+        // clock can't reload into a still-active gate. Reload in place so the
+        // user lands on the same route (now rendering the real app).
         fetch("/api/countdown", { cache: "no-store" })
           .then((r) => r.json())
           .then(({ over }) => {
-            if (over) window.location.href = "/"
+            if (over) window.location.reload()
           })
           .catch(() => {
-            window.location.href = "/"
+            window.location.reload()
           })
       }
     }, 1000)
@@ -48,7 +49,7 @@ export function CountdownView({ endsAt }: { endsAt: number }) {
 
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-6 text-center"
+      className="relative flex size-full min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-6 text-center"
       style={{
         backgroundImage:
           "radial-gradient(circle, oklch(1 0 0 / 0.035) 1px, transparent 1px)",
