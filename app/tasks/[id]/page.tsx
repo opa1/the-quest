@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getActiveNetwork } from "@/lib/config/network.server"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
@@ -48,7 +49,7 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
   const maxClaimers = task.max_claimers ?? 1
 
   // Claim context — the viewer's own claim plus the mission-wide slot tally.
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   let myClaimStatus:
     | "claimed"

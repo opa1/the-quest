@@ -5,6 +5,7 @@ import { ScrollReveal } from "@/components/atoms/ScrollReveal"
 import { SectionWrapper } from "@/components/atoms/SectionWrapper"
 import { HeroActions } from "@/components/molecules/HeroActions"
 import { OperativeStack } from "@/components/molecules/OperativeStack"
+import { SocialLinks } from "@/components/molecules/SocialLinks"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 export function WarRoom() {
@@ -42,6 +43,7 @@ export function WarRoom() {
             count={activeOperatives}
             label={statLabel}
           />
+          <SocialLinks />
         </ScrollReveal>
 
         <ScrollReveal

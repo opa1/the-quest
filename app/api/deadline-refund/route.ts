@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processDeadlineRefund } from '@/app/actions/tasks'
+import { normalizeNetwork } from '@/lib/config/network'
 
 export async function POST(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
@@ -9,9 +10,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  const { taskId } = await req.json()
+  const { taskId, network } = await req.json()
   if (!taskId) return NextResponse.json({ error: 'taskId required' }, { status: 400 })
 
-  const result = await processDeadlineRefund(taskId)
+  // The per-project cron sends its own network; act on that task's DB.
+  const result = await processDeadlineRefund(taskId, normalizeNetwork(network))
   return NextResponse.json(result)
 }

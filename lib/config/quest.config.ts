@@ -1,5 +1,4 @@
 import { BicepsFlexed, Flame, Zap } from "lucide-react"
-import { ADA_LABEL } from '@/lib/utils/currency'
 
 export const QUEST_CONFIG = {
   stats: {
@@ -7,10 +6,10 @@ export const QUEST_CONFIG = {
   },
   nav: {
     links: [
-      { label: "Bounty Board", href: "#bounty-board" },
-      { label: "Arsenal", href: "#arsenal" },
-      { label: "Guild", href: "#guild" },
-      { label: "The Ledger", href: "#the-ledger" },
+      { label: "Bounty Board", href: "/#bounty-board" },
+      { label: "Arsenal", href: "/#arsenal" },
+      { label: "Guild", href: "/#guild" },
+      { label: "The Ledger", href: "/#the-ledger" },
       { label: "Ledger", href: "/ledger" },
     ],
   },
@@ -286,6 +285,10 @@ export const QUEST_CONFIG = {
     ],
     copyright: "© 2024 THE QUEST PROTOCOL. ALL RIGHTS RESERVED.",
   },
+  social: {
+    x: "https://x.com/the_questgg",
+    discord: "https://discord.gg/tXSnBVqFp",
+  },
   realmNav: [
     { label: "Realm", href: "/realm", icon: "Home" },
     { label: "Missions", href: "/missions", icon: "Sword" },
@@ -458,6 +461,11 @@ export const QUEST_CONFIG = {
       { label: "Oldest First", value: "oldest" },
       { label: "Highest Reward", value: "reward" },
     ],
+    statusOptions: [
+      { label: "All Missions", value: "ALL" },
+      { label: "Open Only", value: "OPEN" },
+      { label: "Open First", value: "OPEN_FIRST" },
+    ],
     pageSize: 12,
   } as const,
   record: {
@@ -514,9 +522,9 @@ export const QUEST_CONFIG = {
       descriptionMaxLength: 1000,
       categoryLabel: "CATEGORY",
       difficultyLabel: "DIFFICULTY",
-      adaRewardLabel: `${ADA_LABEL} REWARD`,
+      adaRewardLabel: "{ADA} REWARD",
       adaRewardPlaceholder: "0",
-      adaRewardHelper: `Amount in ${ADA_LABEL} the claimer will receive on approval`,
+      adaRewardHelper: "Amount in {ADA} the claimer will receive on approval",
       proofTypeLabel: "PROOF REQUIRED",
       submitLabel: "DEPLOY MISSION",
       submittingLabel: "DEPLOYING...",
@@ -553,7 +561,7 @@ export const QUEST_CONFIG = {
     previewTitle: "MISSION PREVIEW",
     previewSubtext: "This is how your mission will appear on the Bounty Board.",
     processingPaymentLabel: "PROCESSING PAYMENT...",
-    adaRequiredError: `${ADA_LABEL} reward is required. Minimum is 2 ${ADA_LABEL}.`,
+    adaRequiredError: "{ADA} reward is required. Minimum is 2 {ADA}.",
     detectingDifficulty: "Detecting difficulty...",
     difficultyDetected: "Difficulty detected",
     difficultyDetectFailed: "Could not detect difficulty. Please select manually.",

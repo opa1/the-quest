@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import { Link2, ExternalLink } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -5,8 +7,7 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { ChainStatRow } from '@/components/atoms/ChainStatRow'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
-import { CARDANO_NETWORK } from '@/lib/config/cardano.config'
-import { formatAda } from '@/lib/utils/currency'
+import { useAda } from '@/lib/hooks/useAda'
 import type { LedgerStats } from '@/lib/utils/ledger'
 
 interface ChainStatusPanelProps {
@@ -14,10 +15,11 @@ interface ChainStatusPanelProps {
   isLoading?: boolean
 }
 
-const networkLabel = CARDANO_NETWORK === 'Mainnet' ? 'Cardano Mainnet' : 'Cardano Preprod'
 const { ctaLabel, ctaHref, statLabels } = QUEST_CONFIG.ledger.chainStatus
 
 export function ChainStatusPanel({ stats, isLoading }: ChainStatusPanelProps) {
+  const { network, formatAda } = useAda()
+  const networkLabel = network === 'Mainnet' ? 'Cardano Mainnet' : 'Cardano Preprod'
   return (
     <Card className="flex flex-col gap-5 rounded-[16px] border border-border/50 bg-card p-6">
       <div className="flex items-center gap-2">

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useCardano } from '@cardano-foundation/cardano-connect-with-wallet'
 import { NetworkType } from '@cardano-foundation/cardano-connect-with-wallet-core'
 import { linkWalletWithSignature } from '@/app/actions/profile'
-import { CARDANO_NETWORK } from '@/lib/config/cardano.config'
+import { activeNetworkFromCookie } from '@/lib/config/network'
 
 const WalletSelector = dynamic(
   () => import('@/components/molecules/WalletSelector'),
@@ -21,7 +21,6 @@ const WalletSelector = dynamic(
   }
 )
 
-const WALLET_NETWORK = CARDANO_NETWORK === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
 const LINK_MESSAGE_PREFIX = 'Link wallet to The Quest'
 
 type LinkStep = 'connecting' | 'signing' | 'verifying' | 'error'
@@ -31,8 +30,10 @@ interface WalletLinkFlowProps {
 }
 
 export function WalletLinkFlow({ onLinked }: WalletLinkFlowProps) {
+  const walletNetwork =
+    activeNetworkFromCookie() === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
   const { isConnected, usedAddresses, signMessage, disconnect } = useCardano({
-    limitNetwork: WALLET_NETWORK,
+    limitNetwork: walletNetwork,
   })
   const [step, setStep] = useState<LinkStep>('connecting')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

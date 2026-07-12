@@ -3,6 +3,10 @@ import { redirect } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import RealmHeader from "@/components/sections/RealmHeader"
 import FloatingMobileNav from "@/components/molecules/FloatingMobileNav"
+import MigrationOfferGate from "@/components/molecules/MigrationOfferGate"
+
+const NETWORK_SWITCH_ENABLED =
+  process.env.NEXT_PUBLIC_NETWORK_SWITCH_ENABLED === "true"
 
 export default async function ProtectedLayout({
   children,
@@ -38,6 +42,7 @@ export default async function ProtectedLayout({
         </main>
       </ScrollArea>
       <FloatingMobileNav />
+      {NETWORK_SWITCH_ENABLED && <MigrationOfferGate />}
     </div>
   )
 }

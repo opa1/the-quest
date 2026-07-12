@@ -51,15 +51,21 @@ function loadEnv() {
 
 loadEnv()
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY
-const NETWORK = process.env.NEXT_PUBLIC_CARDANO_NETWORK ?? "Preprod"
-const ADA_LABEL = NETWORK === "Mainnet" ? "ADA" : "tADA"
+const isMainnet = process.argv.includes("--mainnet")
+const suffix = isMainnet ? "_MAINNET" : "_TESTNET"
+const NETWORK = isMainnet ? "Mainnet" : "Preprod"
+const ADA_LABEL = isMainnet ? "ADA" : "tADA"
+
+const SUPABASE_URL =
+  process.env[`NEXT_PUBLIC_SUPABASE_URL${suffix}`] ??
+  process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY =
+  process.env[`SUPABASE_SECRET_KEY${suffix}`] ?? process.env.SUPABASE_SECRET_KEY
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error(
-    "Missing Supabase credentials. Ensure NEXT_PUBLIC_SUPABASE_URL and " +
-      "SUPABASE_SECRET_KEY are set in .env"
+    `Missing Supabase credentials for ${NETWORK}. Ensure ` +
+      `NEXT_PUBLIC_SUPABASE_URL${suffix} and SUPABASE_SECRET_KEY${suffix} are set in .env`
   )
   process.exit(1)
 }

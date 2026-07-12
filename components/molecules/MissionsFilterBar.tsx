@@ -98,6 +98,27 @@ export default function MissionsFilterBar() {
           ))}
         </SelectContent>
       </Select>
+
+      {/* Status (completed missions) */}
+      <Select
+        value={filters.status}
+        onValueChange={(val) => setFilter("status", val as any)}
+      >
+        <SelectTrigger className="h-9 w-40 text-xs tracking-widest uppercase">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {QUEST_CONFIG.missions.statusOptions.map((opt) => (
+            <SelectItem
+              key={opt.value}
+              value={opt.value}
+              className="text-xs tracking-widest uppercase p-3"
+            >
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

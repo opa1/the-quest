@@ -1,4 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getActiveNetwork } from '@/lib/config/network.server'
+import { type Network } from '@/lib/config/network'
 
 export type CreateNotificationInput = {
   userId: string
@@ -8,11 +10,14 @@ export type CreateNotificationInput = {
   title: string
   message: string
   actionUrl?: string
+  // Explicit network for non-request contexts (e.g. the deadline-refund cron).
+  // Request-scoped callers omit it and get the active network.
+  network?: Network
 }
 
 export async function createNotification(input: CreateNotificationInput): Promise<void> {
   try {
-    const adminClient = createAdminClient()
+    const adminClient = createAdminClient(input.network ?? (await getActiveNetwork()))
     await adminClient.from('notifications').insert({
       user_id: input.userId,
       actor_id: input.actorId ?? null,

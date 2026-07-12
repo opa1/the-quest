@@ -71,8 +71,11 @@ function parseOr(expr: string): OrTerm[] {
 
 type ExecResult = { data: unknown; error: unknown; count?: number }
 
+type CmpOp = "lte" | "gte" | "lt" | "gt"
+
 class FakeQueryBuilder implements PromiseLike<ExecResult> {
   private eqFilters: { col: string; value: unknown }[] = []
+  private cmpFilters: { col: string; op: CmpOp; value: unknown }[] = []
   private orTerms: OrTerm[] | null = null
   private operation: "select" | "insert" | "update" | "delete" | "upsert" = "select"
   private insertPayload: FakeRow | FakeRow[] | undefined
@@ -95,6 +98,26 @@ class FakeQueryBuilder implements PromiseLike<ExecResult> {
 
   eq(col: string, value: unknown) {
     this.eqFilters.push({ col, value })
+    return this
+  }
+
+  lte(col: string, value: unknown) {
+    this.cmpFilters.push({ col, op: "lte", value })
+    return this
+  }
+
+  gte(col: string, value: unknown) {
+    this.cmpFilters.push({ col, op: "gte", value })
+    return this
+  }
+
+  lt(col: string, value: unknown) {
+    this.cmpFilters.push({ col, op: "lt", value })
+    return this
+  }
+
+  gt(col: string, value: unknown) {
+    this.cmpFilters.push({ col, op: "gt", value })
     return this
   }
 
@@ -140,6 +163,17 @@ class FakeQueryBuilder implements PromiseLike<ExecResult> {
   private matches(row: FakeRow): boolean {
     const eqOk = this.eqFilters.every((f) => row[f.col] === f.value)
     if (!eqOk) return false
+    const cmpOk = this.cmpFilters.every((f) => {
+      const v = row[f.col]
+      if (v === null || v === undefined) return false
+      const a = v as string | number
+      const b = f.value as string | number
+      if (f.op === "lte") return a <= b
+      if (f.op === "gte") return a >= b
+      if (f.op === "lt") return a < b
+      return a > b
+    })
+    if (!cmpOk) return false
     if (!this.orTerms) return true
     return this.orTerms.some((t) =>
       t.kind === "is_null"

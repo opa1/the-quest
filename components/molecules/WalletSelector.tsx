@@ -6,11 +6,7 @@ import { NetworkType } from '@cardano-foundation/cardano-connect-with-wallet-cor
 import WalletOption from '@/components/atoms/WalletOption'
 import WalletNoneState from '@/components/atoms/WalletNoneState'
 import { AlertCircle } from 'lucide-react'
-import { CARDANO_NETWORK } from '@/lib/config/cardano.config'
-
-// Map our config value to the library's enum.
-// "Preprod" and "Preview" are both Cardano testnets — CIP-30 reports them as network id 0 (TESTNET).
-const WALLET_NETWORK = CARDANO_NETWORK === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
+import { activeNetworkFromCookie } from '@/lib/config/network'
 
 interface WalletSelectorProps {
   onConnected: (walletAddress: string) => void
@@ -28,7 +24,10 @@ function capitalize(str: string) {
 }
 
 export default function WalletSelector({ onConnected, className }: WalletSelectorProps) {
-  const { installedExtensions, connect, disconnect, isConnected, usedAddresses } = useCardano({ limitNetwork: WALLET_NETWORK })
+  // "Preprod"/"Preview" are Cardano testnets — CIP-30 reports them as network id 0 (TESTNET).
+  const walletNetwork =
+    activeNetworkFromCookie() === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
+  const { installedExtensions, connect, disconnect, isConnected, usedAddresses } = useCardano({ limitNetwork: walletNetwork })
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Ref so the effect always reads the latest value even if state batching delays the update

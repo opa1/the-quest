@@ -17,6 +17,12 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/cardano/server", () => ({
   sendAdaPayoutViaService: vi.fn(),
 }))
+vi.mock("@/lib/cardano/verify-deposit", () => ({
+  verifyDepositCoversBounty: vi.fn(),
+}))
+vi.mock("@/lib/config/network.server", () => ({
+  getActiveNetwork: vi.fn().mockResolvedValue("Preprod"),
+}))
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }))
@@ -24,6 +30,7 @@ vi.mock("next/cache", () => ({
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { sendAdaPayoutViaService } from "@/lib/cardano/server"
+import { verifyDepositCoversBounty } from "@/lib/cardano/verify-deposit"
 import {
   claimTask,
   dropTask,
@@ -31,6 +38,7 @@ import {
   approveWork,
   rejectWork,
   banUser,
+  createMission,
   processDeadlineRefund,
 } from "@/app/actions/tasks"
 
@@ -40,6 +48,13 @@ beforeEach(() => {
   db = createFakeDb()
   vi.mocked(createAdminClient).mockReturnValue(createFakeClient(db) as never)
   vi.mocked(sendAdaPayoutViaService).mockReset()
+  // Default: escrow deposit is valid and covers the bounty. Individual tests
+  // override this to prove payouts/refunds fail closed when it doesn't.
+  vi.mocked(verifyDepositCoversBounty).mockReset()
+  vi.mocked(verifyDepositCoversBounty).mockResolvedValue({
+    ok: true,
+    paidLovelace: Number.MAX_SAFE_INTEGER,
+  })
 })
 
 function asUser(userId: string | null) {
@@ -287,6 +302,73 @@ describe("processDeadlineRefund", () => {
     expect(findRow("tasks", "t1")?.refund_status).toBe("failed")
     expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
   })
+
+  it("blocks the refund when the escrow deposit fails on-chain verification", async () => {
+    seedTask({
+      id: "t1",
+      status: "open",
+      deadline: PAST_DEADLINE,
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+      deposit_tx_hash: "bogus-tx",
+    })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(verifyDepositCoversBounty).mockResolvedValueOnce({
+      ok: false,
+      error: "deposit_not_found",
+      message: "Escrow deposit not found on-chain. Payout blocked.",
+    })
+
+    const result = await processDeadlineRefund("t1")
+
+    expect(result).toEqual({ success: false, error: "deposit_not_found" })
+    const task = findRow("tasks", "t1")
+    expect(task?.refund_status).toBe("failed")
+    expect(task?.refund_last_error).toBe("deposit_not_found")
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+})
+
+describe("createMission", () => {
+  it("rejects a deposit tx hash already used by another mission", async () => {
+    seedTask({ id: "t1", deposit_tx_hash: "reused-tx" })
+    asUser("poster-1")
+
+    const result = await createMission({
+      title: "A brand new mission",
+      description: "This description is definitely long enough to pass.",
+      category: "general",
+      difficulty: "easy",
+      reward_credits: 500,
+      ada_reward: 5,
+      deposit_tx_hash: "reused-tx",
+    })
+
+    expect(result).toEqual({
+      error: "deposit_reused",
+      message: "This escrow deposit has already been used for another mission.",
+    })
+    // No second task created.
+    expect((db.tasks ?? []).filter((t) => t.deposit_tx_hash === "reused-tx")).toHaveLength(1)
+  })
+
+  it("creates a mission when the deposit tx hash is unused", async () => {
+    asUser("poster-1")
+
+    const result = await createMission({
+      title: "A brand new mission",
+      description: "This description is definitely long enough to pass.",
+      category: "general",
+      difficulty: "easy",
+      reward_credits: 500,
+      ada_reward: 5,
+      deposit_tx_hash: "fresh-tx",
+    })
+
+    expect("taskId" in result && result.taskId).toBeTruthy()
+    expect((db.tasks ?? []).some((t) => t.deposit_tx_hash === "fresh-tx")).toBe(true)
+  })
 })
 
 describe("approveWork", () => {
@@ -396,6 +478,33 @@ describe("approveWork", () => {
     expect(result.error).toBe("no_wallet")
     expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
     expect(findRow("task_claims", "c1")?.payout_status).toBeNull()
+  })
+
+  it("blocks the payout when the escrow deposit fails on-chain verification", async () => {
+    seedTask({
+      id: "t1",
+      created_by: "poster-1",
+      ada_reward: 5_000_000,
+      reward_credits: 500,
+      deposit_tx_hash: "bogus-tx",
+    })
+    seedClaim({ id: "c1", task_id: "t1", user_id: "claimer-1", status: "submitted" })
+    seedProfile({ id: "claimer-1", credits: 100, wallet_address: "addr1" })
+    asUser("poster-1")
+    vi.mocked(verifyDepositCoversBounty).mockResolvedValueOnce({
+      ok: false,
+      error: "insufficient_deposit",
+      message: "Escrow deposit does not cover the mission reward. Payout blocked.",
+    })
+
+    const result = await approveWork("t1", "c1")
+
+    expect(result.error).toBe("insufficient_deposit")
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+    const claim = findRow("task_claims", "c1")
+    expect(claim?.status).toBe("submitted")
+    expect(claim?.payout_status).toBeNull()
+    expect(findRow("profiles", "claimer-1")?.credits).toBe(100)
   })
 })
 

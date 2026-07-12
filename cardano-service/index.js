@@ -14,11 +14,20 @@ app.use(cors())
 app.use(express.json())
 
 const PORT = process.env.PORT ?? 3000
-const CARDANO_NETWORK = process.env.CARDANO_NETWORK ?? "Preprod"
-const BLOCKFROST_URL =
-  CARDANO_NETWORK === "Mainnet"
-    ? "https://cardano-mainnet.blockfrost.io/api/v0"
-    : "https://cardano-preprod.blockfrost.io/api/v0"
+
+// Same platform wallet (seed) on both networks; only the provider + Lucid
+// network differ per payout request.
+function blockfrostFor(network) {
+  return network === "Mainnet"
+    ? {
+        url: "https://cardano-mainnet.blockfrost.io/api/v0",
+        projectId: process.env.BLOCKFROST_PROJECT_ID_MAINNET,
+      }
+    : {
+        url: "https://cardano-preprod.blockfrost.io/api/v0",
+        projectId: process.env.BLOCKFROST_PROJECT_ID,
+      }
+}
 
 function requireSecret(req, res, next) {
   const secret = process.env.CARDANO_SERVICE_SECRET
@@ -47,14 +56,12 @@ function decryptSeed() {
   return decrypted
 }
 
-async function getPlatformLucid() {
-  const projectId = process.env.BLOCKFROST_PROJECT_ID
-  if (!projectId) throw new Error("Blockfrost project ID not configured.")
+async function getPlatformLucid(network) {
+  const { url, projectId } = blockfrostFor(network)
+  if (!projectId)
+    throw new Error(`Blockfrost project ID not configured for ${network}.`)
 
-  const lucid = await Lucid(
-    new Blockfrost(BLOCKFROST_URL, projectId),
-    CARDANO_NETWORK
-  )
+  const lucid = await Lucid(new Blockfrost(url, projectId), network)
 
   const seed = decryptSeed()
   lucid.selectWallet.fromSeed(seed)
@@ -62,11 +69,12 @@ async function getPlatformLucid() {
 }
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", network: CARDANO_NETWORK })
+  res.json({ status: "ok" })
 })
 
 app.post("/payout", requireSecret, async (req, res) => {
-  const { toAddress, lovelace } = req.body
+  const { toAddress, lovelace, network: reqNetwork } = req.body
+  const network = reqNetwork === "Mainnet" ? "Mainnet" : "Preprod"
 
   if (!toAddress || typeof toAddress !== "string") {
     return res
@@ -81,7 +89,7 @@ app.post("/payout", requireSecret, async (req, res) => {
   }
 
   try {
-    const lucid = await getPlatformLucid()
+    const lucid = await getPlatformLucid(network)
 
     const tx = await lucid
       .newTx()
@@ -92,7 +100,7 @@ app.post("/payout", requireSecret, async (req, res) => {
     const txHash = await signedTx.submit()
 
     console.log(
-      `[payout] sent ${lovelace} lovelace to ${toAddress} — tx: ${txHash}`
+      `[payout] (${network}) sent ${lovelace} lovelace to ${toAddress} — tx: ${txHash}`
     )
     return res.json({ txHash })
   } catch (err) {
@@ -105,5 +113,13 @@ app.post("/payout", requireSecret, async (req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`Cardano service running on port ${PORT} (${CARDANO_NETWORK})`)
+  const nets = [
+    process.env.BLOCKFROST_PROJECT_ID ? "Preprod" : null,
+    process.env.BLOCKFROST_PROJECT_ID_MAINNET ? "Mainnet" : null,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  console.log(
+    `Cardano service running on port ${PORT} (networks: ${nets || "none configured"})`
+  )
 })

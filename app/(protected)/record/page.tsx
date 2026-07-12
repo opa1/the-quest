@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getActiveNetwork } from "@/lib/config/network.server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import RecordStatsStrip from "@/components/molecules/RecordStatsStrip"
@@ -38,7 +39,7 @@ export default async function RecordPage() {
   //   1. Multi-claimer — task_claims.status = 'approved' (tx hash on the claim).
   //   2. Legacy single-claimer — tasks.status = 'completed' & claimed_by = user
   //      (rows that predate task_claims; tx hash lives in task_logs).
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   const [approvedClaimsRes, legacyTasksRes] = await Promise.all([
     admin

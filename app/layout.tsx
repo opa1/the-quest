@@ -7,6 +7,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 import AuthProvider from "@/components/providers/AuthProvider"
 import { Suspense } from "react"
 import AuthDialogTrigger from "./_components/AuthDialogTrigger"
+import { MainnetWelcomeDialog } from "@/components/molecules/MainnetWelcomeDialog"
+import { Countdown } from "@/components/molecules/Countdown"
+import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -33,7 +36,7 @@ export const metadata: Metadata = {
       "The Quest | Complete Tasks. Earn Credits. Build Your On-Chain Legacy.",
     description:
       "Claim tasks across design, writing, code and more. Get paid in credits. Every mission you complete is recorded permanently on the Cardano blockchain. Start building your legacy today.",
-    url: "https://thequestgg.vercel.app",
+    url: "https://thequesters.fun",
     siteName: "The Quest",
     images: [
       {
@@ -58,7 +61,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   alternates: {
-    canonical: "https://thequestgg.vercel.app",
+    canonical: "https://thequesters.fun",
   },
 }
 
@@ -75,11 +78,29 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
-export default function RootLayout({
+// Launch countdown gate: while a future end date is set in `app_config`, the
+// whole app is replaced by the full-screen Countdown — no app code renders and
+// there's no redirect/route to 404. Lifts automatically at the end time (the
+// page reloads into the real app).
+async function getCountdownEndsAt() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("app_config")
+    .select("value")
+    .eq("key", "mainnet_countdown_ends_at")
+    .maybeSingle()
+
+  const endsAt = data?.value ? new Date(data.value).getTime() : null
+  return endsAt && Number.isFinite(endsAt) && Date.now() < endsAt ? endsAt : null
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const countdownEndsAt = await getCountdownEndsAt()
+
   return (
     <html
       lang="en"
@@ -94,13 +115,18 @@ export default function RootLayout({
     >
       <body className="overflow-x-hidden">
         <ThemeProvider defaultTheme="dark">
-          <AuthProvider>
-            <Suspense>
-              <AuthDialogTrigger />
-            </Suspense>
-            
-            {children}
-          </AuthProvider>
+          {countdownEndsAt ? (
+            <Countdown endsAt={countdownEndsAt} />
+          ) : (
+            <AuthProvider>
+              <Suspense>
+                <AuthDialogTrigger />
+              </Suspense>
+              <MainnetWelcomeDialog />
+
+              {children}
+            </AuthProvider>
+          )}
         </ThemeProvider>
       </body>
     </html>

@@ -2,13 +2,28 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { getActiveNetwork } from "@/lib/config/network.server"
+import { type Network } from "@/lib/config/network"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import crypto from "crypto"
 
-function derivePassword(walletAddress: string): string {
-  const secret = process.env.WALLET_AUTH_SECRET ?? ""
-  return crypto.createHmac("sha256", secret).update(walletAddress).digest("hex")
+// Wallet-user passwords are derived from a per-network secret. Testnet must keep
+// using the same secret as before (WALLET_AUTH_SECRET_TESTNET == the legacy
+// WALLET_AUTH_SECRET) or existing wallet logins break; mainnet uses its own.
+function walletAuthSecret(network: Network): string {
+  const perNetwork =
+    network === "Mainnet"
+      ? process.env.WALLET_AUTH_SECRET_MAINNET
+      : process.env.WALLET_AUTH_SECRET_TESTNET
+  return perNetwork ?? process.env.WALLET_AUTH_SECRET ?? ""
+}
+
+function derivePassword(walletAddress: string, network: Network): string {
+  return crypto
+    .createHmac("sha256", walletAuthSecret(network))
+    .update(walletAddress)
+    .digest("hex")
 }
 
 export async function walletSignIn(
@@ -18,7 +33,9 @@ export async function walletSignIn(
 ): Promise<
   { success: true; redirectTo: string } | { error: string; message: string }
 > {
-  const adminClient = createAdminClient()
+  // Everything here acts on the currently-selected network's database.
+  const network = await getActiveNetwork()
+  const adminClient = createAdminClient(network)
 
   // Fetch and validate nonce
   const { data: nonceRow } = await adminClient
@@ -61,12 +78,38 @@ export async function walletSignIn(
   // Delete used nonce
   await adminClient.from("auth_nonces").delete().eq("id", nonceRow.id)
 
-  // Check if profile exists for this wallet address
-  const { data: existingProfile } = await adminClient
-    .from("profiles")
-    .select("id, signup_method, onboarded")
-    .eq("wallet_address", walletAddress)
-    .single()
+  // Identify the wallet by its network-agnostic key hash, not a single address
+  // (a wallet exposes many addresses). This stops a duplicate account being
+  // created by signing in with a different address of a wallet that already
+  // belongs to an account — including one linked to an X account.
+  const { walletKeyHash } = await import("@/lib/cardano/identity")
+  const keyHash = await walletKeyHash(walletAddress)
+
+  let existingProfile:
+    | {
+        id: string
+        signup_method: string | null
+        onboarded: boolean | null
+        wallet_address: string | null
+      }
+    | null = null
+
+  if (keyHash) {
+    const { data } = await adminClient
+      .from("profiles")
+      .select("id, signup_method, onboarded, wallet_address")
+      .eq("wallet_key_hash", keyHash)
+      .maybeSingle()
+    existingProfile = data
+  }
+  if (!existingProfile) {
+    const { data } = await adminClient
+      .from("profiles")
+      .select("id, signup_method, onboarded, wallet_address")
+      .eq("wallet_address", walletAddress)
+      .maybeSingle()
+    existingProfile = data
+  }
 
   if (existingProfile) {
     if (existingProfile.signup_method === "x") {
@@ -77,8 +120,11 @@ export async function walletSignIn(
       }
     }
 
-    const email = `${walletAddress}@wallet.thequest.gg`
-    const password = derivePassword(walletAddress)
+    // Sign in with the address the account was created under — the incoming
+    // address may be a different one from the same wallet.
+    const authAddress = existingProfile.wallet_address ?? walletAddress
+    const email = `${authAddress}@wallet.thequest.gg`
+    const password = derivePassword(authAddress, network)
 
     const supabase = await createClient()
     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -101,7 +147,7 @@ export async function walletSignIn(
 
   // New wallet user -- create Supabase auth user
   const email = `${walletAddress}@wallet.thequest.gg`
-  const password = derivePassword(walletAddress)
+  const password = derivePassword(walletAddress, network)
 
   const { data: newAuthUser, error: createError } =
     await adminClient.auth.admin.createUser({
@@ -121,10 +167,12 @@ export async function walletSignIn(
     }
   }
 
-  // Create profile
+  // Create profile. wallet_key_hash is the network-agnostic identity used both
+  // to match this wallet across networks and to prevent duplicate accounts.
   await adminClient.from("profiles").insert({
     id: newAuthUser.user.id,
     wallet_address: walletAddress,
+    wallet_key_hash: keyHash,
     signup_method: "wallet",
     onboarded: false,
   })

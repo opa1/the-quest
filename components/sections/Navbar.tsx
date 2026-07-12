@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { QuestLogo } from "@/components/atoms/QuestLogo"
 import { MobileNav } from "@/components/molecules/MobileNav"
+import { NetworkSwitcher } from "@/components/molecules/NetworkSwitcher"
 import { Button } from "@/components/ui/button"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 import { useAuthGuard } from "@/lib/hooks/useAuthGuard"
@@ -73,6 +74,7 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <NetworkSwitcher />
           <Button
             variant="default"
             className="hidden lg:block"

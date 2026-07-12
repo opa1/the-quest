@@ -1,11 +1,13 @@
 import "server-only"
+import { type Network } from "@/lib/config/network"
 
 const SERVICE_URL = process.env.CARDANO_SERVICE_URL ?? "http://localhost:3002"
 const SERVICE_SECRET = process.env.CARDANO_SERVICE_SECRET ?? ""
 
 export async function sendAdaPayoutViaService(
   toAddress: string,
-  lovelace: number
+  lovelace: number,
+  network: Network
 ): Promise<{ txHash: string } | { error: string; message: string }> {
   try {
     const res = await fetch(`${SERVICE_URL}/payout`, {
@@ -14,7 +16,7 @@ export async function sendAdaPayoutViaService(
         "Content-Type": "application/json",
         "x-service-secret": SERVICE_SECRET,
       },
-      body: JSON.stringify({ toAddress, lovelace }),
+      body: JSON.stringify({ toAddress, lovelace, network }),
     })
 
     const text = await res.text()

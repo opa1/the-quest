@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import DifficultyRadioOption from '@/components/atoms/DifficultyRadioOption'
 import FormFieldError from '@/components/atoms/FormFieldError'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
-import { ADA_LABEL } from '@/lib/utils/currency'
+import { useAda } from '@/lib/hooks/useAda'
 import { detectDifficulty } from '@/app/actions/detect-difficulty'
 import { randomXpForDifficulty } from '@/lib/utils/xp'
 import { Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react'
@@ -68,6 +68,7 @@ export default function MissionFormFields({
   deadline,
   onDeadlineChange,
 }: MissionFormFieldsProps) {
+  const { adaLabel } = useAda()
   const [detectionState, setDetectionState] = useState<DetectionState>('idle')
   const [detectionError, setDetectionError] = useState<string | null>(null)
   const [showManualSelector, setShowManualSelector] = useState(false)
@@ -368,7 +369,7 @@ export default function MissionFormFields({
             <span className="text-xs font-bold uppercase tracking-widest text-amber-400">
               {pmCfg.totalDepositLabel}:{' '}
               {form.max_claimers} x {rewardPerPerson || 0} ={' '}
-              {+(form.max_claimers * (rewardPerPerson || 0)).toFixed(2)} {ADA_LABEL}
+              {+(form.max_claimers * (rewardPerPerson || 0)).toFixed(2)} {adaLabel}
             </span>
           </div>
         </>
@@ -376,7 +377,7 @@ export default function MissionFormFields({
         /* ADA Reward (single) */
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
-            {cfg.adaRewardLabel}
+            {cfg.adaRewardLabel.replaceAll('{ADA}', adaLabel)}
           </Label>
           <Input
             type="number"
@@ -386,7 +387,7 @@ export default function MissionFormFields({
             placeholder={cfg.adaRewardPlaceholder}
             className="bg-muted/30 border-border/50 focus:border-primary"
           />
-          <p className="text-xs text-muted-foreground">{cfg.adaRewardHelper}</p>
+          <p className="text-xs text-muted-foreground">{cfg.adaRewardHelper.replaceAll('{ADA}', adaLabel)}</p>
         </div>
       )}
 

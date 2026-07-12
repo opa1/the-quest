@@ -11,7 +11,7 @@ export default function FloatingMobileNav() {
   const isPostPage = pathname === "/post"
 
   return (
-    <div className="lg:hidden fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center">
+    <div className="xl:hidden fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center">
       {/* Dark pill — icons only, no labels, no split */}
       <div className="flex h-14 items-center rounded-full border border-border/80 bg-card px-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         {QUEST_CONFIG.mobileNav.map((item) => (

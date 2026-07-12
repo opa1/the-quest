@@ -5,6 +5,7 @@ import RealmNavPills from "@/components/molecules/RealmNavPills"
 import UserDropdown from "@/components/molecules/UserDropdown"
 import CreditsDisplay from "@/components/atoms/CreditsDisplay"
 import { NotificationDropdown } from "@/components/molecules/NotificationDropdown"
+import { NetworkSwitcher } from "@/components/molecules/NetworkSwitcher"
 import { QuestLogo } from "../atoms/QuestLogo"
 
 interface RealmHeaderProps {
@@ -30,6 +31,7 @@ export default function RealmHeader({
         <RealmNavPills />
 
         <div className="flex items-center gap-4">
+          <NetworkSwitcher />
           <CreditsDisplay amount={credits} />
           <NotificationDropdown userId={userId} />
           <UserDropdown username={username} avatarUrl={avatarUrl} />

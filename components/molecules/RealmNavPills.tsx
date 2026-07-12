@@ -8,7 +8,7 @@ export default function RealmNavPills() {
   const pathname = usePathname()
 
   return (
-    <nav className="hidden lg:flex items-center gap-2">
+    <nav className="hidden xl:flex items-center gap-2">
       {QUEST_CONFIG.realmNav.map((item) => (
         <NavPill
           key={item.href}

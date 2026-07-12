@@ -39,12 +39,32 @@ export async function verifyWalletSignature(
       ['verify']
     )
 
-    return await crypto.subtle.verify(
+    const verified = await crypto.subtle.verify(
       { name: 'Ed25519' },
       importedKey,
       new Uint8Array(sigBytes),
       new Uint8Array(sigStructure)
     )
+    if (!verified) return false
+
+    // Bind the signing key to the claimed address. The public key's hash must
+    // match one of the address's credentials — otherwise anyone could sign the
+    // nonce with their own key and impersonate an arbitrary wallet address.
+    const { getAddressDetails } = await import('@lucid-evolution/utils')
+    const { CML } = await import('@lucid-evolution/lucid')
+    const keyHashHex = CML.PublicKey.from_bytes(new Uint8Array(pubKeyBytes))
+      .hash()
+      .to_hex()
+      .toLowerCase()
+    const details = getAddressDetails(walletAddress)
+    const credentialHashes = [
+      details.paymentCredential?.hash,
+      details.stakeCredential?.hash,
+    ]
+      .filter((h): h is string => Boolean(h))
+      .map((h) => h.toLowerCase())
+
+    return credentialHashes.includes(keyHashHex)
   } catch (err) {
     console.error('[verifyWalletSignature] failed:', err)
     return false

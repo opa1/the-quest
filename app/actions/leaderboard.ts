@@ -1,6 +1,7 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getActiveNetwork } from "@/lib/config/network.server"
 
 /**
  * Completed-mission count per user, correct for both claim models.
@@ -20,7 +21,7 @@ export async function getCompletedCounts(
 ): Promise<Record<string, number>> {
   if (userIds.length === 0) return {}
 
-  const admin = createAdminClient()
+  const admin = createAdminClient(await getActiveNetwork())
 
   // user_id -> set of task_ids they have completed
   const byUser: Record<string, Set<string>> = {}

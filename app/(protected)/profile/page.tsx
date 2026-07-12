@@ -4,7 +4,14 @@ import ProfileSettingsForm from '@/components/molecules/ProfileSettingsForm'
 import WalletSettingsBlock from '@/components/molecules/WalletSettingsBlock'
 import DangerZoneBlock from '@/components/molecules/DangerZoneBlock'
 import LinkXBlock from '@/components/molecules/LinkXBlock'
+import NetworkSettingsBlock from '@/components/molecules/NetworkSettingsBlock'
+import { getActiveNetwork } from '@/lib/config/network.server'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
+
+// Kept behind a flag until the migration offer UI + cutover ship, so real users
+// can't switch into the empty mainnet DB early.
+const NETWORK_SWITCH_ENABLED =
+  process.env.NEXT_PUBLIC_NETWORK_SWITCH_ENABLED === 'true'
 
 export const metadata = {
   title: 'Profile - The Quest',
@@ -25,6 +32,7 @@ export default async function ProfilePage() {
   if (!profile) redirect('/')
 
   const isWalletUser = profile.signup_method === 'wallet'
+  const activeNetwork = await getActiveNetwork()
 
   return (
     <div className="flex flex-col gap-8 max-w-2xl mx-auto">
@@ -48,6 +56,10 @@ export default async function ProfilePage() {
           xLinked={profile.x_linked ?? false}
           xHandle={profile.x_handle ?? null}
         />
+      )}
+
+      {NETWORK_SWITCH_ENABLED && (
+        <NetworkSettingsBlock activeNetwork={activeNetwork} />
       )}
 
       <DangerZoneBlock />

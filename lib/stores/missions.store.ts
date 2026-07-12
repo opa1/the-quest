@@ -26,6 +26,7 @@ const defaultFilters: MissionFilters = {
   category: "ALL",
   difficulty: "ALL",
   sort: "newest",
+  status: "ALL",
 }
 
 export const useMissionsStore = create<MissionsState>((set, get) => ({
@@ -70,9 +71,17 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
       if (user) {
         query = query.eq("created_by", user.id)
       }
-    } else {
-      // Public board only shows open missions
+    } else if (filters.status === "OPEN") {
+      // Hide completed.
       query = query.eq("status", "open")
+    } else {
+      // Show open + completed (completed shown greyed with a green check).
+      query = query.in("status", ["open", "completed"])
+      if (filters.status === "OPEN_FIRST") {
+        // 'open' > 'completed' alphabetically, so desc puts open at the top and
+        // completed at the bottom, before the chosen sort applies within each.
+        query = query.order("status", { ascending: false })
+      }
     }
 
 
