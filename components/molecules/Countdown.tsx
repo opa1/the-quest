@@ -16,9 +16,13 @@ function remaining(endsAt: number) {
 }
 
 export function Countdown({ endsAt }: { endsAt: number }) {
-  const [t, setT] = useState(() => remaining(endsAt))
+  // Start as null and fill in on mount. The remaining time is different on the
+  // server (render time) than on the client (hydration time), so computing it
+  // during render would mismatch the digits and blow up hydration (React #418).
+  const [t, setT] = useState<ReturnType<typeof remaining> | null>(null)
 
   useEffect(() => {
+    setT(remaining(endsAt))
     const id = setInterval(() => {
       const next = remaining(endsAt)
       setT(next)
@@ -40,11 +44,12 @@ export function Countdown({ endsAt }: { endsAt: number }) {
     return () => clearInterval(id)
   }, [endsAt])
 
+  // Renders "--" on the server and on the first client paint, so both agree.
   const units = [
-    { label: "Days", value: t.days },
-    { label: "Hours", value: t.hours },
-    { label: "Minutes", value: t.minutes },
-    { label: "Seconds", value: t.seconds },
+    { label: "Days", value: t?.days },
+    { label: "Hours", value: t?.hours },
+    { label: "Minutes", value: t?.minutes },
+    { label: "Seconds", value: t?.seconds },
   ]
 
   return (
@@ -75,7 +80,7 @@ export function Countdown({ endsAt }: { endsAt: number }) {
               className="flex min-w-[70px] flex-col items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-3 py-4 sm:min-w-[88px] sm:px-6"
             >
               <span className="font-heading text-3xl font-black text-primary tabular-nums md:text-5xl">
-                {String(u.value).padStart(2, "0")}
+                {u.value === undefined ? "--" : String(u.value).padStart(2, "0")}
               </span>
               <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
                 {u.label}

@@ -1,14 +1,31 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
-import { Copy } from 'lucide-react'
-import { WalletLinkFlow } from '@/components/molecules/WalletLinkFlow'
+import { Copy, Loader2 } from 'lucide-react'
 import { disconnectWallet } from '@/app/actions/profile'
 import { truncateAddress } from '@/lib/utils/rank'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
+
+// Browser-only: the wallet connector reads window.localStorage while its module
+// is being evaluated, which throws during SSR. Client components are still
+// server-rendered, so a plain import is enough to crash the page — it has to be
+// loaded lazily with ssr disabled. (AuthDialog loads WalletAuthFlow the same way.)
+const WalletLinkFlow = dynamic(
+  () =>
+    import('@/components/molecules/WalletLinkFlow').then((m) => m.WalletLinkFlow),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  }
+)
 
 interface WalletSettingsBlockProps {
   walletAddress: string | null

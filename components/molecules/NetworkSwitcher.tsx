@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
 import { Check, ChevronDown } from "lucide-react"
+import { toast } from "sonner"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { switchNetwork } from "@/app/actions/network"
-import { activeNetworkFromCookie, type Network } from "@/lib/config/network"
+import {
+  activeNetworkFromCookie,
+  networkLabel,
+  parseNetwork,
+  NETWORK_SWITCHED_PARAM,
+  type Network,
+} from "@/lib/config/network"
 import { cn } from "@/lib/utils"
 
 // Kept behind the same flag as the Profile toggle so real users can't switch
@@ -26,7 +32,6 @@ const OPTIONS: { value: Network; label: string; dot: string; hint: string }[] = 
 // is the deliberate confirmation step. Reads the active network from the cookie
 // after mount (avoids a hydration mismatch) and self-hides when disabled.
 export function NetworkSwitcher({ className }: { className?: string }) {
-  const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [network, setNetwork] = useState<Network>("Preprod")
   const [isPending, startTransition] = useTransition()
@@ -34,6 +39,21 @@ export function NetworkSwitcher({ className }: { className?: string }) {
   useEffect(() => {
     setNetwork(activeNetworkFromCookie())
     setMounted(true)
+
+    // We got here from a network switch: confirm it, then drop the marker from
+    // the URL so a refresh or share doesn't re-toast.
+    const params = new URLSearchParams(window.location.search)
+    const switched = parseNetwork(params.get(NETWORK_SWITCHED_PARAM))
+    if (!switched) return
+
+    toast.success(`Network switched to ${networkLabel(switched)}`)
+    params.delete(NETWORK_SWITCHED_PARAM)
+    const query = params.toString()
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (query ? `?${query}` : "")
+    )
   }, [])
 
   if (!ENABLED || !mounted) return null
@@ -44,9 +64,11 @@ export function NetworkSwitcher({ className }: { className?: string }) {
     if (target === network) return
     startTransition(async () => {
       await switchNetwork(target)
-      // Land on home: the target network has its own session.
-      router.push("/")
-      router.refresh()
+      // Full page load, not router.push: the network is read from a cookie by
+      // both the server and the browser Supabase client, and a soft navigation
+      // leaves the already-initialised client stuck on the old network. Land on
+      // home because the target network has its own session.
+      window.location.href = `/?${NETWORK_SWITCHED_PARAM}=${target}`
     })
   }
 
