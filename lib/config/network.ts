@@ -14,6 +14,23 @@ export const ACTIVE_NETWORK_COOKIE = "active_network"
 export const DEFAULT_NETWORK: Network =
   process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "Mainnet" ? "Mainnet" : "Preprod"
 
+// Switching networks is a full page load (the browser Supabase client and auth
+// provider read the cookie at construction, so a soft navigation would leave
+// them on the old network). The target rides along in this query param so the
+// landing page can confirm the switch with a toast once it loads.
+export const NETWORK_SWITCHED_PARAM = "network_switched"
+
+// What users are shown: "Preprod" is an implementation detail.
+export function networkLabel(network: Network): string {
+  return network === "Mainnet" ? "Mainnet" : "Testnet"
+}
+
+// Strict counterpart to normalizeNetwork, which falls back to DEFAULT_NETWORK
+// for unrecognized input — that would make an absent param look like a switch.
+export function parseNetwork(value: string | null | undefined): Network | null {
+  return value === "Mainnet" || value === "Preprod" ? value : null
+}
+
 export function normalizeNetwork(value: string | null | undefined): Network {
   if (value === "Mainnet") return "Mainnet"
   if (value === "Preprod") return "Preprod"

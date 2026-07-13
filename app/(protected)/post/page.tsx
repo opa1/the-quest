@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import PostMissionForm from "@/components/molecules/PostMissionForm"
+import PostMissionFormClient from "@/components/molecules/PostMissionFormClient"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 export const metadata = {
@@ -33,7 +33,7 @@ export default async function PostPage() {
           {QUEST_CONFIG.postMission.subtext}
         </p>
       </div>
-      <PostMissionForm hasWallet={hasWallet} />
+      <PostMissionFormClient hasWallet={hasWallet} />
     </div>
   )
 }

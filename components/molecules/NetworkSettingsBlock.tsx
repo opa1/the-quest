@@ -1,12 +1,11 @@
 'use client'
 
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { switchNetwork } from '@/app/actions/network'
-import type { Network } from '@/lib/config/network'
+import { NETWORK_SWITCHED_PARAM, type Network } from '@/lib/config/network'
 
 interface NetworkSettingsBlockProps {
   activeNetwork: Network
@@ -15,7 +14,6 @@ interface NetworkSettingsBlockProps {
 export default function NetworkSettingsBlock({
   activeNetwork,
 }: NetworkSettingsBlockProps) {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const isMainnet = activeNetwork === 'Mainnet'
@@ -30,10 +28,11 @@ export default function NetworkSettingsBlock({
 
     startTransition(async () => {
       await switchNetwork(target)
-      // Land on home: the target network has its own session, so the user may
-      // need to authenticate or migrate there.
-      router.push('/')
-      router.refresh()
+      // Full page load, not router.push: a soft navigation leaves the already
+      // initialised browser Supabase client on the old network. Land on home —
+      // the target network has its own session, so the user may need to
+      // authenticate or migrate there.
+      window.location.href = `/?${NETWORK_SWITCHED_PARAM}=${target}`
     })
   }
 

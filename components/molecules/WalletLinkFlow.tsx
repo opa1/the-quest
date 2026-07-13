@@ -32,9 +32,10 @@ interface WalletLinkFlowProps {
 export function WalletLinkFlow({ onLinked }: WalletLinkFlowProps) {
   const walletNetwork =
     activeNetworkFromCookie() === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
-  const { isConnected, usedAddresses, signMessage, disconnect } = useCardano({
-    limitNetwork: walletNetwork,
-  })
+  const { isConnected, usedAddresses, unusedAddresses, signMessage, disconnect } =
+    useCardano({
+      limitNetwork: walletNetwork,
+    })
   const [step, setStep] = useState<LinkStep>('connecting')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const signingRef = useRef(false)
@@ -107,11 +108,17 @@ export function WalletLinkFlow({ onLinked }: WalletLinkFlowProps) {
   )
 
   useEffect(() => {
-    if (isConnected && usedAddresses.length > 0 && !signingRef.current) {
+    // A wallet with no transaction history on this network exposes no *used*
+    // addresses, so fall back to an unused one — gating on usedAddresses alone
+    // leaves a fresh wallet stuck here forever with nothing on screen. Both
+    // belong to the same account, and the wallet signs with its stake key
+    // regardless, so ownership still verifies against the address we claim.
+    const address = usedAddresses[0] ?? unusedAddresses[0]
+    if (isConnected && address && !signingRef.current) {
       signingRef.current = true
-      void startLinkFlow(usedAddresses[0])
+      void startLinkFlow(address)
     }
-  }, [isConnected, usedAddresses, startLinkFlow])
+  }, [isConnected, usedAddresses, unusedAddresses, startLinkFlow])
 
   const handleRetry = () => {
     signingRef.current = false

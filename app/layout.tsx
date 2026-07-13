@@ -9,6 +9,7 @@ import { Suspense } from "react"
 import AuthDialogTrigger from "./_components/AuthDialogTrigger"
 import { MainnetWelcomeDialog } from "@/components/molecules/MainnetWelcomeDialog"
 import { Countdown } from "@/components/molecules/Countdown"
+import { Toaster } from "@/components/ui/sonner"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -125,6 +126,7 @@ export default async function RootLayout({
               <MainnetWelcomeDialog />
 
               {children}
+              <Toaster />
             </AuthProvider>
           )}
         </ThemeProvider>

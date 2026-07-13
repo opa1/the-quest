@@ -32,9 +32,10 @@ interface WalletAuthFlowProps {
 export default function WalletAuthFlow({ onSuccess, onBack }: WalletAuthFlowProps) {
   const walletNetwork =
     activeNetworkFromCookie() === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
-  const { isConnected, usedAddresses, signMessage, disconnect } = useCardano({
-    limitNetwork: walletNetwork,
-  })
+  const { isConnected, usedAddresses, unusedAddresses, signMessage, disconnect } =
+    useCardano({
+      limitNetwork: walletNetwork,
+    })
   const [step, setStep] = useState<AuthStep>('connecting')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const signingRef = useRef(false)
@@ -108,11 +109,15 @@ export default function WalletAuthFlow({ onSuccess, onBack }: WalletAuthFlowProp
   )
 
   useEffect(() => {
-    if (isConnected && usedAddresses.length > 0 && !signingRef.current) {
+    // Fresh wallets have no *used* addresses (nothing has hit the chain yet), so
+    // fall back to an unused one or sign-in silently never starts. See
+    // WalletLinkFlow for why this is still safe to verify against.
+    const address = usedAddresses[0] ?? unusedAddresses[0]
+    if (isConnected && address && !signingRef.current) {
       signingRef.current = true
-      void startSigningFlow(usedAddresses[0])
+      void startSigningFlow(address)
     }
-  }, [isConnected, usedAddresses, startSigningFlow])
+  }, [isConnected, usedAddresses, unusedAddresses, startSigningFlow])
 
   const handleRetry = () => {
     signingRef.current = false

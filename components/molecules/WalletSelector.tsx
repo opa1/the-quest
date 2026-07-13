@@ -27,19 +27,23 @@ export default function WalletSelector({ onConnected, className }: WalletSelecto
   // "Preprod"/"Preview" are Cardano testnets — CIP-30 reports them as network id 0 (TESTNET).
   const walletNetwork =
     activeNetworkFromCookie() === 'Mainnet' ? NetworkType.MAINNET : NetworkType.TESTNET
-  const { installedExtensions, connect, disconnect, isConnected, usedAddresses } = useCardano({ limitNetwork: walletNetwork })
+  const { installedExtensions, connect, disconnect, isConnected, usedAddresses, unusedAddresses } = useCardano({ limitNetwork: walletNetwork })
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Ref so the effect always reads the latest value even if state batching delays the update
   const connectingRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (isConnected && usedAddresses.length > 0 && connectingRef.current) {
-      onConnected(usedAddresses[0])
+    // A wallet with no on-chain history exposes no *used* addresses, so fall
+    // back to an unused one — otherwise connecting a fresh wallet appears to do
+    // nothing at all.
+    const address = usedAddresses[0] ?? unusedAddresses[0]
+    if (isConnected && address && connectingRef.current) {
+      onConnected(address)
       connectingRef.current = null
       setConnectingWallet(null)
     }
-  }, [isConnected, usedAddresses, onConnected])
+  }, [isConnected, usedAddresses, unusedAddresses, onConnected])
 
   const handleConnect = async (walletId: string) => {
     setError(null)
