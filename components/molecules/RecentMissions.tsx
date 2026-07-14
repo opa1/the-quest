@@ -65,6 +65,7 @@ export default function RecentMissions({ currentUserId }: RecentMissionsProps) {
               approvedClaimers={mission.approved_claimers}
               rewardPerClaimer={mission.reward_per_claimer}
               deadline={mission.deadline}
+              deadlinePassed={mission.deadline_passed}
               proofType={mission.proof_type}
               currentUserId={currentUserId}
               createdBy={mission.created_by}

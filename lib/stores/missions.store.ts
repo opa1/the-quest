@@ -21,6 +21,24 @@ interface MissionsState {
   loadMore: () => Promise<void>
 }
 
+// Postgres can't rank an enum-ish text column for us without a CASE expression,
+// which PostgREST won't take, so "Open First" is applied here instead. Ranks
+// unknown statuses last. Array.prototype.sort is stable, so the chosen sort
+// (newest / oldest / reward) still holds within each group.
+const STATUS_RANK: Record<string, number> = {
+  open: 0,
+  claimed: 1,
+  submitted: 2,
+  completed: 3,
+  cancelled: 4,
+}
+
+function sortOpenFirst(missions: Mission[]): Mission[] {
+  return [...missions].sort(
+    (a, b) => (STATUS_RANK[a.status] ?? 99) - (STATUS_RANK[b.status] ?? 99)
+  )
+}
+
 const defaultFilters: MissionFilters = {
   viewMode: "ALL",
   category: "ALL",
@@ -72,17 +90,13 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
         query = query.eq("created_by", user.id)
       }
     } else if (filters.status === "OPEN") {
-      // Hide completed.
+      // The only view that hides anything, and only on request.
       query = query.eq("status", "open")
-    } else {
-      // Show open + completed (completed shown greyed with a green check).
-      query = query.in("status", ["open", "completed"])
-      if (filters.status === "OPEN_FIRST") {
-        // 'open' > 'completed' alphabetically, so desc puts open at the top and
-        // completed at the bottom, before the chosen sort applies within each.
-        query = query.order("status", { ascending: false })
-      }
     }
+    // Otherwise no status filter at all. A mission is never dropped from the
+    // board: claimed and submitted ones are in flight, completed/cancelled ones
+    // are closed, and BountyCard badges each accordingly. (Open First reorders
+    // them below rather than filtering them out.)
 
 
     if (filters.category !== "ALL") {
@@ -111,6 +125,11 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
 
     const newMissions = (data ?? []) as unknown as Mission[]
 
+    const now = Date.now()
+    newMissions.forEach((m) => {
+      m.deadline_passed = !!m.deadline && new Date(m.deadline).getTime() < now
+    })
+
     // Approved claim counts drive the slot progress bars on multi-claimer cards
     const taskIds = newMissions.map((m) => m.id)
     if (taskIds.length > 0) {
@@ -129,8 +148,11 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
       })
     }
 
+    const merged = reset ? newMissions : [...missions, ...newMissions]
+
     set({
-      missions: reset ? newMissions : [...missions, ...newMissions],
+      missions:
+        filters.status === "OPEN_FIRST" ? sortOpenFirst(merged) : merged,
       page: currentPage + 1,
       hasMore: newMissions.length === pageSize,
       isLoading: false,
