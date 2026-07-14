@@ -8,10 +8,47 @@ import { XPReward } from "@/components/atoms/XPReward"
 import { AdaReward } from "@/components/atoms/AdaReward"
 import ProofTypeBadge from "@/components/atoms/ProofTypeBadge"
 import ShareMissionButton from "@/components/molecules/ShareMissionButton"
-import { Clock, CheckCircle2 } from "lucide-react"
+import {
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Swords,
+  Hourglass,
+  type LucideIcon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD"
+
+type StatusBadge = { label: string; icon: LucideIcon; className: string }
+
+const IN_FLIGHT = "border-amber-800 bg-amber-950 text-amber-400"
+const CLOSED = "border-border bg-muted text-muted-foreground"
+
+/** Badge for any mission state other than plain 'open', which shows proof type. */
+function badgeFor(
+  status: string | undefined,
+  deadlinePassed: boolean | undefined
+): StatusBadge | null {
+  switch (status) {
+    case "claimed":
+      return { label: "In progress", icon: Swords, className: IN_FLIGHT }
+    case "submitted":
+      return { label: "In review", icon: Hourglass, className: IN_FLIGHT }
+    case "completed":
+      return {
+        label: "Completed",
+        icon: CheckCircle2,
+        className: "border-green-800 bg-green-950 text-green-400",
+      }
+    case "cancelled":
+      return deadlinePassed
+        ? { label: "Expired", icon: Clock, className: CLOSED }
+        : { label: "Cancelled", icon: XCircle, className: CLOSED }
+    default:
+      return null
+  }
+}
 
 interface BountyCardProps {
   id: string
@@ -31,6 +68,7 @@ interface BountyCardProps {
   maxClaimers?: number
   approvedClaimers?: number
   deadline?: string | null
+  deadlinePassed?: boolean
   rewardPerClaimer?: number
 }
 
@@ -52,11 +90,19 @@ export function BountyCard({
   maxClaimers,
   approvedClaimers,
   deadline,
+  deadlinePassed,
   rewardPerClaimer,
 }: BountyCardProps) {
   const isReviewable =
     taskStatus === "submitted" && currentUserId && currentUserId === createdBy
-  const isCompleted = taskStatus === "completed"
+
+  // Missions are never dropped from the board. Anything that isn't plain 'open'
+  // gets a badge here instead of the proof-type one, and the closed ones are
+  // greyed out. 'cancelled' covers both a poster pulling a mission and the
+  // deadline cron closing it with slots unfilled — the deadline tells them apart.
+  const statusBadge = badgeFor(taskStatus, deadlinePassed)
+  const isClosed =
+    taskStatus === "completed" || taskStatus === "cancelled"
 
   const isMulti = (maxClaimers ?? 1) > 1
   const displayLovelace =
@@ -78,7 +124,7 @@ export function BountyCard({
           "flex h-full cursor-pointer flex-col gap-4 rounded-[16px] border border-border bg-card p-6 transition-colors duration-200 hover:border-primary/50",
           featured &&
             "border-primary shadow-[0_0_24px_oklch(0.795_0.184_86.047/0.2)]",
-          isCompleted && "opacity-60 hover:opacity-100",
+          isClosed && "opacity-60 hover:opacity-100",
           className
         )}
       >
@@ -92,10 +138,15 @@ export function BountyCard({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isCompleted ? (
-              <span className="flex items-center gap-1 rounded-full border border-green-800 bg-green-950 px-2 py-0.5 text-[10px] font-bold tracking-wider text-green-400 uppercase">
-                <CheckCircle2 className="h-3 w-3" />
-                Completed
+            {statusBadge ? (
+              <span
+                className={cn(
+                  "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase",
+                  statusBadge.className
+                )}
+              >
+                <statusBadge.icon className="h-3 w-3" />
+                {statusBadge.label}
               </span>
             ) : (
               proofType && <ProofTypeBadge proofType={proofType} />
@@ -153,7 +204,14 @@ export function BountyCard({
           )}
 
           {deadlineLabel && (
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary bg-primary/10 rounded-full px-2.5 py-1 w-fit">
+            <div
+              className={cn(
+                "flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                deadlinePassed
+                  ? "bg-muted text-muted-foreground line-through"
+                  : "bg-primary/10 text-primary"
+              )}
+            >
               <Clock className="w-3 h-3" />
               {deadlineLabel}
             </div>

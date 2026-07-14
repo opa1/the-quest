@@ -32,11 +32,16 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         proof_type, status, created_at, created_by,
         profiles!tasks_created_by_fkey(username, avatar_url)
       `)
-      .in('status', ['open', 'completed'])
+      // No status filter: the feed shows the 4 most recent missions whatever
+      // state they are in. BountyCard badges in-flight and closed ones.
       .order('created_at', { ascending: false })
       .limit(4)
 
     const missions = ((data as unknown as Mission[]) ?? [])
+
+    missions.forEach((m) => {
+      m.deadline_passed = !!m.deadline && new Date(m.deadline).getTime() < now
+    })
 
     // Approved claim counts drive the slot progress bars on multi-claimer cards
     const taskIds = missions.map((m) => m.id)

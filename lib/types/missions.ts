@@ -112,6 +112,9 @@ export interface Mission {
   proof_notes?: string | null
   proof_image_url?: string | null
   status: string
+  // Derived at fetch time, not stored: reading the clock during render violates
+  // React's purity rule, so the stores stamp this on each row instead.
+  deadline_passed?: boolean
   created_by: string
   created_at: string
   profiles: {
