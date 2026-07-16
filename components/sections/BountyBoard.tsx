@@ -45,6 +45,7 @@ export function BountyBoard() {
                 adaReward={mission.ada_reward ? mission.ada_reward : undefined}
                 maxClaimers={mission.max_claimers}
                 approvedClaimers={mission.approved_claimers}
+                submissionCount={mission.submission_count}
                 rewardPerClaimer={mission.reward_per_claimer}
                 deadline={mission.deadline}
                 deadlinePassed={mission.deadline_passed}

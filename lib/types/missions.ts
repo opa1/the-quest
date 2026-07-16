@@ -107,7 +107,10 @@ export interface Mission {
   ada_reward?: number
   max_claimers?: number
   reward_per_claimer?: number
+  /** Slots paid out. Only this fills the progress bar. */
   approved_claimers?: number
+  /** Operatives competing. Submitting reserves no slot. */
+  submission_count?: number
   deadline?: string | null
   proof_type?: 'url' | 'text' | 'image' | 'any'
   proof_notes?: string | null

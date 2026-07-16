@@ -346,13 +346,11 @@ export const QUEST_CONFIG = {
       completed: "text-blue-400 border-blue-800 bg-blue-950",
       cancelled: "text-muted-foreground border-border bg-muted",
     },
+    // No claim/drop labels: there is no claim step. Anyone may submit while a
+    // mission is live and the poster picks who to pay.
     actions: {
-      claim: "CLAIM THIS MISSION",
       submitWork: "SUBMIT WORK",
-      drop: "DROP MISSION",
       youPosted: "YOU POSTED THIS",
-      inProgress: "MISSION IN PROGRESS",
-      loginPrompt: "SIGN IN TO CLAIM",
     },
     onChainTitle: "ON-CHAIN PROOF",
     onChainSubtext:

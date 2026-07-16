@@ -10,6 +10,7 @@ import TaskStatusBadge from "@/components/atoms/TaskStatusBadge"
 import TimeAgo from "@/components/atoms/TimeAgo"
 import UserAvatar from "@/components/atoms/UserAvatar"
 import TaskActionPanel from "@/components/molecules/TaskActionPanel"
+import type { Payout } from "@/components/molecules/PayoutProofList"
 import ShareMissionButton from "@/components/molecules/ShareMissionButton"
 import { unstable_noStore as noStore } from "next/cache"
 
@@ -50,7 +51,8 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
   const maxClaimers = task.max_claimers ?? 1
 
   // Claim context — the viewer's own claim plus the mission-wide slot tally.
-  const admin = createAdminClient(await getActiveNetwork())
+  const network = await getActiveNetwork()
+  const admin = createAdminClient(network)
 
   let myClaimStatus:
     | "claimed"
@@ -73,29 +75,48 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
     .select("status")
     .eq("task_id", id)
 
-  const activeCount = (allClaims ?? []).filter((c) =>
-    ["claimed", "submitted", "approved"].includes(c.status)
-  ).length
   const submittedCount = (allClaims ?? []).filter(
     (c) => c.status === "submitted"
   ).length
+  // Mirrors closeMission's rule: a mission nobody ever did work on is deleted
+  // outright rather than kept as a cancelled tombstone. Rejected counts —
+  // someone spent time on it.
+  const willDelete = !(allClaims ?? []).some((c) =>
+    ["submitted", "approved", "rejected"].includes(c.status)
+  )
+  // Only an approved claim consumes a slot; submissions compete for them.
   const approvedCount = (allClaims ?? []).filter(
     (c) => c.status === "approved"
   ).length
-  const slotsRemaining = Math.max(0, maxClaimers - activeCount)
+  const submissionCount = submittedCount + approvedCount
 
-  let txHash: string | null = null
-  if (task.status === "completed") {
-    const { data: log } = await supabase
-      .from("task_logs")
-      .select("cardano_tx_hash")
-      .eq("task_id", task.id)
-      .eq("action", "completed")
-      .not("cardano_tx_hash", "is", null)
-      .limit(1)
-      .maybeSingle()
-    txHash = log?.cardano_tx_hash ?? null
-  }
+  // Every hunter this mission has actually paid, regardless of its status: the
+  // ADA has left the wallet whether or not the last slot is filled, and the
+  // proof belongs on the page either way. task_logs rather than task_claims —
+  // one row per approval, and completions predating the claims table live only
+  // here.
+  const { data: payoutLogs } = await supabase
+    .from("task_logs")
+    .select(
+      "id, created_at, cardano_tx_hash, profiles!task_logs_user_id_fkey(username, avatar_url)"
+    )
+    .eq("task_id", task.id)
+    .eq("action", "completed")
+    .not("cardano_tx_hash", "is", null)
+    .order("created_at", { ascending: false })
+
+  const payouts: Payout[] = (payoutLogs ?? []).map((log) => {
+    const profile = Array.isArray(log.profiles)
+      ? log.profiles[0]
+      : (log.profiles as { username: string | null; avatar_url: string | null } | null)
+    return {
+      id: log.id,
+      username: profile?.username ?? null,
+      avatarUrl: profile?.avatar_url ?? null,
+      txHash: log.cardano_tx_hash as string,
+      at: log.created_at,
+    }
+  })
 
   const poster = Array.isArray(task.poster) ? task.poster[0] : task.poster
   const claimer = Array.isArray(task.claimer) ? task.claimer[0] : task.claimer
@@ -162,8 +183,9 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             createdById={task.created_by}
             maxClaimers={maxClaimers}
             myClaimStatus={myClaimStatus}
-            slotsRemaining={slotsRemaining}
             submittedCount={submittedCount}
+            submissionCount={submissionCount}
+            willDelete={willDelete}
             approvedClaimers={approvedCount}
             deadline={task.deadline ?? null}
             refundStatus={task.refund_status ?? null}
@@ -172,8 +194,11 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             rewardPerClaimer={task.reward_per_claimer ?? undefined}
             xp={task.reward_credits}
             adaReward={task.ada_reward ?? 0}
-            txHash={txHash}
-            completedAt={task.completed_at}
+            payouts={payouts}
+            // Server-resolved from the cookie rather than useAda in the client,
+            // which reports DEFAULT_NETWORK until it mounts and would point the
+            // explorer links at the wrong chain until hydration.
+            network={network}
             claimedAt={task.claimed_at}
             claimer={claimer ?? null}
             poster={poster ?? null}

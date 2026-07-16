@@ -1,6 +1,6 @@
 // A minimal in-memory stand-in for the subset of the supabase-js /
 // PostgREST query builder that app/actions/*.ts actually uses
-// (.from().select().eq().or().single()/.maybeSingle(), .update(), .insert(),
+// (.from().select().eq().in().or().single()/.maybeSingle(), .update(), .insert(),
 // .delete()). It really filters/mutates an in-memory table so tests can
 // prove optimistic-lock / retry logic actually behaves correctly, rather
 // than just asserting a mock was called with the right arguments.
@@ -75,6 +75,7 @@ type CmpOp = "lte" | "gte" | "lt" | "gt"
 
 class FakeQueryBuilder implements PromiseLike<ExecResult> {
   private eqFilters: { col: string; value: unknown }[] = []
+  private inFilters: { col: string; values: unknown[] }[] = []
   private cmpFilters: { col: string; op: CmpOp; value: unknown }[] = []
   private orTerms: OrTerm[] | null = null
   private operation: "select" | "insert" | "update" | "delete" | "upsert" = "select"
@@ -98,6 +99,11 @@ class FakeQueryBuilder implements PromiseLike<ExecResult> {
 
   eq(col: string, value: unknown) {
     this.eqFilters.push({ col, value })
+    return this
+  }
+
+  in(col: string, values: unknown[]) {
+    this.inFilters.push({ col, values })
     return this
   }
 
@@ -163,6 +169,8 @@ class FakeQueryBuilder implements PromiseLike<ExecResult> {
   private matches(row: FakeRow): boolean {
     const eqOk = this.eqFilters.every((f) => row[f.col] === f.value)
     if (!eqOk) return false
+    const inOk = this.inFilters.every((f) => f.values.includes(row[f.col]))
+    if (!inOk) return false
     const cmpOk = this.cmpFilters.every((f) => {
       const v = row[f.col]
       if (v === null || v === undefined) return false

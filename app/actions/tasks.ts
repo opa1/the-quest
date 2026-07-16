@@ -10,282 +10,44 @@ import { type Network } from "@/lib/config/network"
 import { createNotification } from "@/lib/utils/notify"
 import { formatAda } from "@/lib/utils/currency"
 
-// Claim rows that still occupy a slot on the mission. A "rejected" claim frees
-// its slot so the poster (or another operative) can take it again.
-const ACTIVE_CLAIM_STATUSES = ["claimed", "submitted", "approved"] as const
-
 type AdminClient = ReturnType<typeof createAdminClient>
 
-// Recompute a multi-claimer task's status from its claim rows.
-// Single-claimer (max_claimers === 1) tasks keep the legacy explicit
-// transitions (open -> claimed -> submitted -> completed) and never call this.
-async function recomputeMultiTaskState(
+/**
+ * Recompute a task's status from its claim rows. The only thing that consumes a
+ * slot is an *approved* claim.
+ *
+ * Submitting does not reserve anything: any number of operatives can submit to
+ * a mission and the poster picks the ones they want to pay. The old model let
+ * max_claimers people claim a slot and sit on it, which locked everyone else
+ * out of a mission that nobody was actually working on — so a task is 'open'
+ * until it has been paid out in full, and 'completed' the moment it has.
+ *
+ * 'claimed' and 'submitted' are no longer reachable for a task. Rows that
+ * predate this are migrated in 20260716000000_open_submissions.sql.
+ */
+async function recomputeTaskState(
   admin: AdminClient,
   taskId: string,
   maxClaimers: number
 ) {
-  const { data: claims } = await admin
+  const { count: approvedCount } = await admin
     .from("task_claims")
-    .select("status")
+    .select("id", { count: "exact", head: true })
     .eq("task_id", taskId)
+    .eq("status", "approved")
 
-  const rows = claims ?? []
-  const active = rows.filter((c) =>
-    (ACTIVE_CLAIM_STATUSES as readonly string[]).includes(c.status)
-  ).length
-  const approved = rows.filter((c) => c.status === "approved").length
-
+  const approved = approvedCount ?? 0
   const now = new Date().toISOString()
   const update: Record<string, unknown> = { updated_at: now }
 
   if (approved >= maxClaimers) {
     update.status = "completed"
     update.completed_at = now
-  } else if (active >= maxClaimers) {
-    update.status = "claimed"
   } else {
     update.status = "open"
   }
 
   await admin.from("tasks").update(update).eq("id", taskId)
-}
-
-export async function claimTask(taskId: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return { error: "not_authenticated" }
-
-  const admin = createAdminClient(await getActiveNetwork())
-
-  const { data: task } = await admin
-    .from("tasks")
-    .select("id, title, status, created_by, max_claimers")
-    .eq("id", taskId)
-    .single()
-
-  if (!task)
-    return {
-      error: "task_not_found",
-      message: "This mission no longer exists.",
-    }
-  if (task.created_by === user.id)
-    return {
-      error: "cannot_claim_own_task",
-      message: "You cannot claim a mission you posted.",
-    }
-
-  const maxClaimers = task.max_claimers ?? 1
-
-  // Ban gate - a poster can bar an operative from a mission.
-  const { data: ban } = await admin
-    .from("task_bans")
-    .select("id")
-    .eq("task_id", taskId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (ban)
-    return {
-      error: "banned",
-      message: "You are not permitted to claim this mission.",
-    }
-
-  // One claim row per (task, user) - the table's unique constraint enforces it.
-  const { data: existingClaim } = await admin
-    .from("task_claims")
-    .select("id, status")
-    .eq("task_id", taskId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (existingClaim && existingClaim.status !== "rejected")
-    return {
-      error: "already_claimed",
-      message: "You have already claimed this mission.",
-    }
-
-  // Slot check - count claims that still occupy a slot.
-  const { data: claims } = await admin
-    .from("task_claims")
-    .select("status")
-    .eq("task_id", taskId)
-
-  const activeCount = (claims ?? []).filter((c) =>
-    (ACTIVE_CLAIM_STATUSES as readonly string[]).includes(c.status)
-  ).length
-
-  if (activeCount >= maxClaimers)
-    return {
-      error: "task_full",
-      message: "All slots for this mission have already been filled.",
-    }
-
-  const now = new Date().toISOString()
-
-  if (existingClaim) {
-    // Re-claiming after a rejection: reset the existing row rather than insert
-    // (the unique constraint forbids a second row).
-    const { error: claimError } = await admin
-      .from("task_claims")
-      .update({
-        status: "claimed",
-        claimed_at: now,
-        submitted_at: null,
-        completed_at: null,
-        proof_notes: null,
-        proof_image_url: null,
-        rejection_reason: null,
-        cardano_tx_hash: null,
-      })
-      .eq("id", existingClaim.id)
-
-    if (claimError)
-      return {
-        error: "claim_failed",
-        message:
-          "Something went wrong while claiming this mission. Please try again.",
-      }
-  } else {
-    const { error: claimError } = await admin.from("task_claims").insert({
-      task_id: taskId,
-      user_id: user.id,
-      status: "claimed",
-      claimed_at: now,
-    })
-
-    if (claimError)
-      return {
-        error: "claim_failed",
-        message:
-          "Something went wrong while claiming this mission. Please try again.",
-      }
-  }
-
-  // Keep tasks.claimed_by in sync for single-claimer missions (backward compat
-  // with the record/leaderboard queries). Multi-claimer tasks recompute status.
-  if (maxClaimers === 1) {
-    await admin
-      .from("tasks")
-      .update({
-        status: "claimed",
-        claimed_by: user.id,
-        claimed_at: now,
-        updated_at: now,
-      })
-      .eq("id", taskId)
-  } else {
-    const newActive = activeCount + 1
-    await admin
-      .from("tasks")
-      .update({
-        status: newActive >= maxClaimers ? "claimed" : "open",
-        updated_at: now,
-      })
-      .eq("id", taskId)
-  }
-
-  await admin.from("task_logs").insert({
-    task_id: taskId,
-    user_id: user.id,
-    action: "claimed",
-  })
-
-  revalidatePath(`/tasks/${taskId}`)
-  revalidatePath("/missions")
-  revalidatePath("/realm")
-
-  await createNotification({
-    userId: task.created_by,
-    actorId: user.id,
-    type: "mission_claimed",
-    category: "mission",
-    title: "Mission Claimed",
-    message: `Someone claimed your mission: "${task.title}"`,
-    actionUrl: `/tasks/${taskId}/review`,
-  })
-
-  return { success: true }
-}
-
-export async function dropTask(taskId: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return { error: "not_authenticated" }
-
-  const admin = createAdminClient(await getActiveNetwork())
-
-  const { data: task } = await admin
-    .from("tasks")
-    .select("id, max_claimers")
-    .eq("id", taskId)
-    .single()
-
-  if (!task)
-    return {
-      error: "task_not_found",
-      message: "This mission no longer exists.",
-    }
-
-  const maxClaimers = task.max_claimers ?? 1
-
-  const { data: claim } = await admin
-    .from("task_claims")
-    .select("id, status")
-    .eq("task_id", taskId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!claim || claim.status !== "claimed")
-    return {
-      error: "not_claimer",
-      message: "You do not have an active claim on this mission.",
-    }
-
-  const { error: deleteError } = await admin
-    .from("task_claims")
-    .delete()
-    .eq("id", claim.id)
-
-  if (deleteError)
-    return {
-      error: "drop_failed",
-      message:
-        "Something went wrong while dropping this mission. Please try again.",
-    }
-
-  const now = new Date().toISOString()
-
-  if (maxClaimers === 1) {
-    await admin
-      .from("tasks")
-      .update({
-        status: "open",
-        claimed_by: null,
-        claimed_at: null,
-        updated_at: now,
-      })
-      .eq("id", taskId)
-  } else {
-    await recomputeMultiTaskState(admin, taskId, maxClaimers)
-  }
-
-  await admin.from("task_logs").insert({
-    task_id: taskId,
-    user_id: user.id,
-    action: "cancelled",
-  })
-
-  revalidatePath(`/tasks/${taskId}`)
-  revalidatePath("/missions")
-  revalidatePath("/realm")
-
-  return { success: true }
 }
 
 export async function createMission(formData: {
@@ -420,30 +182,24 @@ export async function submitWork(
 
   const { data: task } = await admin
     .from("tasks")
-    .select("id, title, created_by, max_claimers")
+    .select("id, title, created_by, max_claimers, status")
     .eq("id", taskId)
     .single()
 
   if (!task) return { error: "not_found", message: "Mission not found." }
 
-  const maxClaimers = task.max_claimers ?? 1
-
-  const { data: claim } = await admin
-    .from("task_claims")
-    .select("id, status")
-    .eq("task_id", taskId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!claim)
+  if (task.created_by === user.id)
     return {
-      error: "not_claimer",
-      message: "You have not claimed this mission.",
+      error: "cannot_submit_own_task",
+      message: "You cannot submit to a mission you posted.",
     }
-  if (claim.status !== "claimed")
+
+  // Anyone may submit while the mission is live, but not once it has closed:
+  // its slots are either paid out or refunded, so there is nothing left to win.
+  if (task.status === "completed" || task.status === "cancelled")
     return {
-      error: "invalid_status",
-      message: "This claim cannot accept a submission right now.",
+      error: "task_closed",
+      message: "This mission is closed and no longer accepts submissions.",
     }
 
   const { data: ban } = await admin
@@ -459,20 +215,53 @@ export async function submitWork(
       message: "You are not permitted to submit to this mission.",
     }
 
+  // One claim row per (task, user) — the table's unique constraint enforces it.
+  // There is no claim step any more, so the row is created here on first submit.
+  const { data: claim } = await admin
+    .from("task_claims")
+    .select("id, status")
+    .eq("task_id", taskId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (claim?.status === "submitted")
+    return {
+      error: "already_submitted",
+      message: "Your submission is already awaiting review.",
+    }
+  if (claim?.status === "approved")
+    return {
+      error: "already_approved",
+      message: "Your submission for this mission was already approved.",
+    }
+
   const now = new Date().toISOString()
 
-  const { error: claimError } = await admin
-    .from("task_claims")
-    .update({
-      status: "submitted",
-      proof_notes: data.notes ?? null,
-      proof_image_url: data.imageUrl ?? null,
-      submitted_at: now,
-    })
-    .eq("id", claim.id)
+  // Existing row means a rejected resubmission, or a claim made before the
+  // claim step was removed; either way reset it rather than insert a second.
+  const { error: claimError } = claim
+    ? await admin
+        .from("task_claims")
+        .update({
+          status: "submitted",
+          proof_notes: data.notes ?? null,
+          proof_image_url: data.imageUrl ?? null,
+          submitted_at: now,
+          rejection_reason: null,
+        })
+        .eq("id", claim.id)
+    : await admin.from("task_claims").insert({
+        task_id: taskId,
+        user_id: user.id,
+        status: "submitted",
+        claimed_at: now,
+        submitted_at: now,
+        proof_notes: data.notes ?? null,
+        proof_image_url: data.imageUrl ?? null,
+      })
 
   if (claimError) {
-    console.error('[submitWork] task_claims update failed:', claimError)
+    console.error('[submitWork] task_claims write failed:', claimError)
     return {
       error: "update_failed",
       message: `Failed to submit proof: ${claimError.message}`,
@@ -494,19 +283,9 @@ export async function submitWork(
     await admin.from("task_proofs").insert(rows)
   }
 
-  // Mirror onto the task row for single-claimer missions so the legacy
-  // task-level proof reads keep working.
-  if (maxClaimers === 1) {
-    await admin
-      .from("tasks")
-      .update({
-        status: "submitted",
-        proof_notes: data.notes ?? null,
-        proof_image_url: data.imageUrl ?? null,
-        updated_at: now,
-      })
-      .eq("id", taskId)
-  }
+  // The task row is deliberately not touched. A submission reserves nothing, so
+  // the mission stays 'open' for other operatives until the poster has approved
+  // enough of them to fill it — that transition belongs to approveWork.
 
   await admin.from("task_logs").insert({
     task_id: taskId,
@@ -525,7 +304,7 @@ export async function submitWork(
     category: "mission",
     title: "Proof Submitted",
     message: `Someone submitted proof for your mission: "${task.title}"`,
-    actionUrl: `/tasks/${taskId}/review?claim=${claim.id}`,
+    actionUrl: `/tasks/${taskId}/review`,
   })
 
   return { success: true }
@@ -687,18 +466,10 @@ export async function approveWork(taskId: string, claimId: string) {
     cardano_tx_hash: payoutTxHash,
   })
 
-  if (maxClaimers === 1) {
-    await admin
-      .from("tasks")
-      .update({
-        status: "completed",
-        completed_at: now,
-        updated_at: now,
-      })
-      .eq("id", taskId)
-  } else {
-    await recomputeMultiTaskState(admin, taskId, maxClaimers)
-  }
+  // Single- and multi-slot missions share one state machine now: the mission
+  // completes when its last slot is approved, whether that is slot 1 of 1 or
+  // 3 of 3.
+  await recomputeTaskState(admin, taskId, maxClaimers)
 
   revalidatePath(`/tasks/${taskId}`)
   revalidatePath("/missions")
@@ -764,7 +535,6 @@ export async function rejectWork(
     return { error: "invalid_status", message: "No submission to reject." }
 
   const maxClaimers = task.max_claimers ?? 1
-  const now = new Date().toISOString()
 
   const { error: claimError } = await admin
     .from("task_claims")
@@ -787,23 +557,9 @@ export async function rejectWork(
     .eq("task_id", taskId)
     .eq("submitted_by", claim.user_id)
 
-  // The task itself returns to 'open' (the slot reopens); it is never marked
-  // 'rejected'. Single-claimer missions clear their mirrored proof fields.
-  if (maxClaimers === 1) {
-    await admin
-      .from("tasks")
-      .update({
-        status: "open",
-        claimed_by: null,
-        claimed_at: null,
-        proof_notes: null,
-        proof_image_url: null,
-        updated_at: now,
-      })
-      .eq("id", taskId)
-  } else {
-    await recomputeMultiTaskState(admin, taskId, maxClaimers)
-  }
+  // The task itself is never marked 'rejected' — rejecting one operative's
+  // proof leaves the mission exactly as open as it was.
+  await recomputeTaskState(admin, taskId, maxClaimers)
 
   await admin.from("task_logs").insert({
     task_id: taskId,
@@ -918,7 +674,10 @@ async function closeAndRefundUnfilled(
   adminClient: AdminClient,
   task: RefundableTask,
   network: Network,
-  trigger: "deadline" | "poster"
+  trigger: "deadline" | "poster",
+  /** Where the poster's notification points. Overridden when the mission is
+   *  about to be deleted and linking to it would 404. */
+  notifyUrl?: string
 ): Promise<{ success: boolean; refundAmount?: number; error?: string }> {
   const taskId = task.id
   const isClosed = task.status === "completed" || task.status === "cancelled"
@@ -1050,7 +809,7 @@ async function closeAndRefundUnfilled(
       trigger === "deadline"
         ? `Your mission "${task.title}" deadline passed. ${slotLabel} refunded.`
         : `You closed "${task.title}". ${slotLabel} refunded to your wallet.`,
-    actionUrl: `/tasks/${taskId}`,
+    actionUrl: notifyUrl ?? `/tasks/${taskId}`,
   })
 
   revalidatePath(`/tasks/${taskId}`)
@@ -1061,11 +820,75 @@ async function closeAndRefundUnfilled(
 }
 
 /**
+ * Refund an untouched mission's deposit and remove it entirely.
+ *
+ * Only ever called when nothing has been paid and nothing submitted, which is
+ * what makes deleting safe: with no payout there is no 'completed' task_log, so
+ * no ledger history exists to destroy.
+ *
+ * The refund runs first and the delete only follows a success. Reversing that
+ * would strand the ADA permanently — the row carrying deposit_tx_hash and the
+ * refund_status retry lock would be gone, and nothing could ever pay it back.
+ */
+async function deleteUntouchedMission(
+  admin: AdminClient,
+  task: RefundableTask,
+  network: Network
+) {
+  const result = await closeAndRefundUnfilled(
+    admin,
+    task,
+    network,
+    "poster",
+    // The mission is about to stop existing, so don't send the poster to it.
+    "/missions"
+  )
+
+  if (!result.success)
+    return {
+      error: result.error ?? "close_failed",
+      message:
+        "The mission is closed, but the refund did not go through. Press Close again to retry it.",
+    }
+
+  // Children first: works whether the foreign keys cascade or restrict. Every
+  // log here is 'created'/'cancelled' — a payout would mean the mission was not
+  // untouched and we would never have got this far.
+  for (const table of ["task_proofs", "task_claims", "task_bans", "task_logs"]) {
+    await admin.from(table).delete().eq("task_id", task.id)
+  }
+  const { error } = await admin.from("tasks").delete().eq("id", task.id)
+
+  if (error) {
+    console.error("[closeMission] delete failed:", error)
+    // The refund already went through and the task is marked cancelled, so the
+    // money is safe — it just didn't disappear from the board.
+    return {
+      success: true as const,
+      refundAmount: result.refundAmount ?? 0,
+      deleted: false as const,
+    }
+  }
+
+  revalidatePath("/missions")
+  revalidatePath("/realm")
+
+  return {
+    success: true as const,
+    refundAmount: result.refundAmount ?? 0,
+    deleted: true as const,
+  }
+}
+
+/**
  * Poster pulls a live mission and takes back the ADA for slots nobody was paid
  * for. Without this the money is stranded: rejecting a submission reopens the
  * slot but nothing refunds it, and before this existed the only route to a
  * refund was waiting out the deadline — which a mission posted without one
  * never reaches.
+ *
+ * A mission nobody touched is deleted outright; anything with a payout or a
+ * submission is kept and badged, so no one's work vanishes.
  *
  * Submissions still awaiting review are rejected first, so their slots count as
  * unfilled and come back in the refund. Anything already approved is left
@@ -1102,6 +925,24 @@ export async function closeMission(taskId: string) {
   const isClosed = task.status === "completed" || task.status === "cancelled"
   if (isClosed && task.refund_status !== "failed")
     return { error: "already_closed", message: "This mission is already closed." }
+
+  // A mission nobody has ever done work on can go entirely, rather than sit on
+  // the board as a cancelled tombstone. Anything else is kept and badged.
+  //
+  // "Nobody paid" is not the test, and neither is "nobody awaiting review":
+  // rejecting a submission is itself part of closing, so counting only pending
+  // ones would let the first attempt reject someone's work and a retry then
+  // delete the evidence of it. A claim that was ever submitted — including one
+  // since rejected — means a person spent time here, and deleting would bin it
+  // silently and leave their notification pointing at a page that no longer
+  // exists. Vestigial 'claimed' rows don't count: that was interest, not work.
+  const { count: workCount } = await admin
+    .from("task_claims")
+    .select("id", { count: "exact", head: true })
+    .eq("task_id", taskId)
+    .in("status", ["submitted", "approved", "rejected"])
+
+  if ((workCount ?? 0) === 0) return deleteUntouchedMission(admin, task, network)
 
   // Reject anything still in review so its slot is refundable. Done before the
   // refund is priced, since closeAndRefundUnfilled counts approved claims to

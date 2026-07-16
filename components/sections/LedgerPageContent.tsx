@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import TimeAgo from '@/components/atoms/TimeAgo'
-import { useAda } from '@/lib/hooks/useAda'
+import { formatAda } from '@/lib/utils/currency'
 import { fetchLedgerTransactions } from '@/lib/utils/ledger'
 import type { LedgerTransaction, LedgerStats } from '@/lib/utils/ledger'
 import type { Network } from '@/lib/config/network'
@@ -50,8 +50,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   )
 }
 
-function MissionCard({ tx }: { tx: LedgerTransaction }) {
-  const { network, formatAda } = useAda()
+function MissionCard({ tx, network }: { tx: LedgerTransaction; network: Network }) {
   const explorerBase = explorerBaseFor(network)
   return (
     <Card className="flex flex-col gap-3 rounded-[14px] border border-border/50 bg-card p-5">
@@ -75,7 +74,7 @@ function MissionCard({ tx }: { tx: LedgerTransaction }) {
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex gap-4">
           {tx.ada_reward > 0 && (
-            <span className="font-semibold text-primary">{formatAda(tx.ada_reward)}</span>
+            <span className="font-semibold text-primary">{formatAda(tx.ada_reward, network)}</span>
           )}
           {tx.reward_credits > 0 && (
             <span>+{tx.reward_credits.toLocaleString()} XP</span>
@@ -103,14 +102,22 @@ interface LedgerPageContentProps {
   initialTransactions: LedgerTransaction[]
   initialStats: LedgerStats
   totalCount: number
+  /**
+   * Resolved from the cookie on the server. Deliberately not useAda(): that
+   * hook reports DEFAULT_NETWORK until it mounts, which rendered "56.33 tADA"
+   * under a card labelled "Total ADA Earned" and — worse — pointed the explorer
+   * links at the wrong chain until hydration. The server already knows, and a
+   * network switch is a full page load, so this is always current.
+   */
+  network: Network
 }
 
 export function LedgerPageContent({
   initialTransactions,
   initialStats,
   totalCount,
+  network,
 }: LedgerPageContentProps) {
-  const { network, formatAda } = useAda()
   const explorerBase = explorerBaseFor(network)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -143,7 +150,10 @@ export function LedgerPageContent({
           value={`${initialStats.totalXpAwarded.toLocaleString()} XP`}
         />
         <StatCard label="Open Missions" value={String(initialStats.openMissions)} />
-        <StatCard label={`Total ${initialStats.adaLabel} Earned`} value={formatAda(initialStats.totalAdaEarned)} />
+        <StatCard
+          label={`Total ${initialStats.adaLabel} Earned`}
+          value={formatAda(initialStats.totalAdaEarned, network)}
+        />
       </div>
 
       {/* Empty state */}
@@ -197,7 +207,7 @@ export function LedgerPageContent({
                       </span>
                     </td>
                     <td className="px-5 py-4 font-semibold text-primary">
-                      {tx.ada_reward > 0 ? formatAda(tx.ada_reward) : '--'}
+                      {tx.ada_reward > 0 ? formatAda(tx.ada_reward, network) : '--'}
                     </td>
                     <td className="px-5 py-4 text-muted-foreground">
                       {tx.reward_credits > 0 ? `+${tx.reward_credits.toLocaleString()}` : '--'}
@@ -236,7 +246,7 @@ export function LedgerPageContent({
       {transactions.length > 0 && (
         <div className="flex flex-col gap-4 lg:hidden">
           {transactions.map((tx) => (
-            <MissionCard key={tx.id} tx={tx} />
+            <MissionCard key={tx.id} tx={tx} network={network} />
           ))}
         </div>
       )}

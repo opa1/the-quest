@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
-import { adaLabel } from "@/lib/utils/currency"
 import { getActiveNetwork } from "@/lib/config/network.server"
 import { LedgerPageContent } from "@/components/sections/LedgerPageContent"
-import type { LedgerTransaction, LedgerStats } from "@/lib/utils/ledger"
+import {
+  computeLedgerStats,
+  computeLedgerTransactions,
+} from "@/lib/utils/ledger"
 
 export const metadata = {
   title: "The Ledger - The Quest",
@@ -14,81 +16,31 @@ export const dynamic = "force-dynamic"
 
 export default async function LedgerPage() {
   const supabase = await createClient()
+  const network = await getActiveNetwork()
 
-  const [logsRes, countRes, completedTasksRes, openCountRes] =
-    await Promise.all([
-      supabase
-        .from("task_logs")
-        .select(
-          `
-        id, created_at, cardano_tx_hash,
-        tasks!task_logs_task_id_fkey(id, title, category, ada_reward, reward_credits),
-        profiles!task_logs_user_id_fkey(username)
-      `
-        )
-        .eq("action", "completed")
-        .order("created_at", { ascending: false })
-        .range(0, 19),
-      supabase
-        .from("task_logs")
-        .select("*", { count: "exact", head: true })
-        .eq("action", "completed"),
-      supabase
-        .from("tasks")
-        .select("ada_reward, reward_credits")
-        .eq("status", "completed"),
-      supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "open"),
-    ])
+  // Same queries the landing section runs. Previously this page carried its own
+  // copy, which is how its stat cards came to report 8 ADA above a table of
+  // transactions summing to 56.33.
+  const [initialTransactions, initialStats, countRes] = await Promise.all([
+    computeLedgerTransactions(supabase, 20, 0),
+    computeLedgerStats(supabase, network),
+    supabase
+      .from("task_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("action", "completed"),
+  ])
 
-  const logs = logsRes.data ?? []
   const totalCount = countRes.count ?? 0
-  const completed = completedTasksRes.data ?? []
-
-  const initialTransactions: LedgerTransaction[] = logs.map((log) => {
-    const task = Array.isArray(log.tasks) ? log.tasks[0] : (log.tasks as any)
-    const profile = Array.isArray(log.profiles)
-      ? log.profiles[0]
-      : (log.profiles as any)
-    return {
-      id: log.id,
-      task_id: task?.id ?? "",
-      task_title: task?.title ?? "Unknown Mission",
-      completed_by: profile?.username ?? "Unknown",
-      completed_at: log.created_at,
-      category: task?.category ?? "GENERAL",
-      ada_reward: task?.ada_reward ?? 0,
-      reward_credits: task?.reward_credits ?? 0,
-      cardano_tx_hash: log.cardano_tx_hash ?? null,
-      status: (log.cardano_tx_hash ? "confirmed" : "pending") as
-        | "confirmed"
-        | "pending",
-    }
-  })
-
-  const totalXpAwarded = completed.reduce(
-    (sum, t) => sum + (t.reward_credits ?? 0),
-    0
-  )
-  const totalAdaEarned = completed.reduce(
-    (sum, t) => sum + (t.ada_reward ?? 0),
-    0
-  )
-
-  const initialStats: LedgerStats = {
-    totalXpAwarded,
-    openMissions: openCountRes.count ?? 0,
-    totalAdaEarned,
-    adaLabel: adaLabel(await getActiveNetwork()),
-  }
 
   return (
     <LedgerPageContent
       initialTransactions={initialTransactions}
       initialStats={initialStats}
       totalCount={totalCount}
+      // Resolved here rather than via useAda in the client: the cookie is
+      // authoritative and known now, so nothing flashes the wrong currency or
+      // links at the wrong explorer before hydration.
+      network={network}
     />
   )
 }
