@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { switchNetwork } from "@/app/actions/network"
+import { networkSwitchDestination } from "@/lib/config/routes"
 import {
   activeNetworkFromCookie,
   networkLabel,
@@ -64,11 +65,22 @@ export function NetworkSwitcher({ className }: { className?: string }) {
     if (target === network) return
     startTransition(async () => {
       await switchNetwork(target)
+
+      // Stay where the user was, because being bounced home on every switch is
+      // disorienting. networkSwitchDestination sends them elsewhere only when
+      // the current URL can't survive the switch (a task id belongs to one
+      // database). If they have no session on the target network the protected
+      // layout redirects to '/' on arrival anyway.
+      const dest = networkSwitchDestination(window.location.pathname)
+      const params = new URLSearchParams(
+        dest === window.location.pathname ? window.location.search : ''
+      )
+      params.set(NETWORK_SWITCHED_PARAM, target)
+
       // Full page load, not router.push: the network is read from a cookie by
       // both the server and the browser Supabase client, and a soft navigation
-      // leaves the already-initialised client stuck on the old network. Land on
-      // home because the target network has its own session.
-      window.location.href = `/?${NETWORK_SWITCHED_PARAM}=${target}`
+      // leaves the already-initialised client stuck on the old network.
+      window.location.href = `${dest}?${params.toString()}`
     })
   }
 

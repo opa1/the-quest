@@ -8,8 +8,10 @@ interface FeatureCardProps {
   icon: string
   title: string
   description: string
-  ctaLabel?: string
-  href?: string
+  /** Required: should name the destination, not repeat a generic verb. */
+  ctaLabel: string
+  /** Required: a feature card without a destination is a dead end. */
+  href: string
   className?: string
 }
 
@@ -17,8 +19,8 @@ export function FeatureCard({
   icon,
   title,
   description,
-  ctaLabel = 'DEPLOY PROTOCOL',
-  href = '#',
+  ctaLabel,
+  href,
   className,
 }: FeatureCardProps) {
   return (

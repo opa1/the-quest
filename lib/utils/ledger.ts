@@ -57,20 +57,34 @@ export async function fetchLedgerTransactions(limit = 2, offset = 0): Promise<Le
 export async function fetchLedgerStats(): Promise<LedgerStats> {
   const supabase = createClient()
 
-  const [completedRes, openRes] = await Promise.all([
+  // "Earned" means ADA that actually left the treasury, so the source of truth is
+  // the claim's payout_status - not the task's status. A task sits at 'completed'
+  // the moment its slots are filled, which says nothing about whether anyone was
+  // paid, and a multi-claimer task pays out while it is still 'open'. Counting
+  // per claim rather than per task is deliberate: releaseReward sends one payout
+  // of tasks.ada_reward per approved claim, so a task with two paid claimers has
+  // genuinely paid twice.
+  const [paidRes, openRes] = await Promise.all([
     supabase
-      .from('tasks')
-      .select('ada_reward, reward_credits')
-      .eq('status', 'completed'),
+      .from('task_claims')
+      .select('tasks!task_claims_task_id_fkey(ada_reward, reward_credits)')
+      .eq('payout_status', 'succeeded'),
     supabase
       .from('tasks')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'open'),
   ])
 
-  const completed = completedRes.data ?? []
-  const totalXpAwarded = completed.reduce((sum, t) => sum + (t.reward_credits ?? 0), 0)
-  const totalAdaEarned = completed.reduce((sum, t) => sum + (t.ada_reward ?? 0), 0)
+  // PostgREST types a to-one embed as either an object or a single-element array
+  // depending on how it resolves the relationship; normalise both shapes.
+  type PaidTask = { ada_reward: number | null; reward_credits: number | null }
+  const paid = (paidRes.data ?? []).map((claim) => {
+    const task = (claim as { tasks: PaidTask | PaidTask[] | null }).tasks
+    return Array.isArray(task) ? task[0] : task
+  })
+
+  const totalXpAwarded = paid.reduce((sum, t) => sum + (t?.reward_credits ?? 0), 0)
+  const totalAdaEarned = paid.reduce((sum, t) => sum + (t?.ada_reward ?? 0), 0)
   const openMissions = openRes.count ?? 0
 
   return {

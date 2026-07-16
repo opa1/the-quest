@@ -2,12 +2,12 @@
 
 import { useEffect } from 'react'
 import { ChapterLabel } from '@/components/atoms/ChapterLabel'
+import { GuardedLink } from '@/components/atoms/GuardedLink'
 import { SectionTitle } from '@/components/atoms/SectionTitle'
 import { ScrollReveal } from '@/components/atoms/ScrollReveal'
 import { SectionWrapper } from '@/components/atoms/SectionWrapper'
 import { BountyCard } from '@/components/molecules/BountyCard'
-import { LandingMissionCard } from '@/components/molecules/LandingMissionCard'
-import { LandingMissionCardSkeleton } from '@/components/molecules/LandingMissionCardSkeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { QUEST_CONFIG } from '@/lib/config/quest.config'
 import { useLandingStore } from '@/lib/stores/landing.store'
@@ -30,26 +30,45 @@ export function BountyBoard() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <LandingMissionCardSkeleton key={i} />
+            <Skeleton key={i} className="h-72 w-full rounded-[16px]" />
           ))
         ) : missions.length > 0 ? (
-          missions.map((mission) => (
-            <ScrollReveal key={mission.id}>
-              <LandingMissionCard mission={mission} />
+          missions.map((mission, i) => (
+            <ScrollReveal key={mission.id} delay={i * 75}>
+              <BountyCard
+                id={mission.id}
+                category={mission.category}
+                difficulty={mission.difficulty.toUpperCase() as 'EASY' | 'MEDIUM' | 'HARD'}
+                title={mission.title}
+                description={mission.description}
+                xp={mission.reward_credits}
+                adaReward={mission.ada_reward ? mission.ada_reward : undefined}
+                maxClaimers={mission.max_claimers}
+                approvedClaimers={mission.approved_claimers}
+                rewardPerClaimer={mission.reward_per_claimer}
+                deadline={mission.deadline}
+                deadlinePassed={mission.deadline_passed}
+                proofType={mission.proof_type}
+                createdBy={mission.created_by}
+                taskStatus={mission.status}
+              />
             </ScrollReveal>
           ))
         ) : (
-          QUEST_CONFIG.bounties.map((bounty, i) => (
-            <ScrollReveal key={bounty.id} delay={i * 75}>
-              <BountyCard {...bounty} />
-            </ScrollReveal>
-          ))
+          <p className="col-span-full py-12 text-center text-sm text-muted-foreground">
+            No missions on the board yet.{' '}
+            <GuardedLink href="/post" className="text-primary hover:underline">
+              Post the first one.
+            </GuardedLink>
+          </p>
         )}
       </div>
 
       <ScrollReveal delay={500} className="flex justify-center">
-        <Button variant="outline">
-          <span className="uppercase tracking-widest">{ctaLabel}</span>
+        <Button variant="outline" asChild>
+          <GuardedLink href="/missions">
+            <span className="uppercase tracking-widest">{ctaLabel}</span>
+          </GuardedLink>
         </Button>
       </ScrollReveal>
     </SectionWrapper>

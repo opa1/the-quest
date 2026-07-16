@@ -1,16 +1,18 @@
 import { BicepsFlexed, Flame, Zap } from "lucide-react"
 
+/** Support, Community and the Gates CTA all land here rather than on own pages. */
+export const DISCORD_INVITE = "https://discord.gg/tXSnBVqFp"
+
 export const QUEST_CONFIG = {
-  stats: {
-    activeOperatives: "10K+",
-  },
   nav: {
+    // Real routes, not section anchors — the one exception is the Guild, which is
+    // the "how to start" explainer and only exists as a landing section.
     links: [
-      { label: "Bounty Board", href: "/#bounty-board" },
-      { label: "Arsenal", href: "/#arsenal" },
+      { label: "Missions", href: "/missions" },
+      { label: "How It Works", href: "/how-it-works" },
       { label: "Guild", href: "/#guild" },
-      { label: "The Ledger", href: "/#the-ledger" },
       { label: "Ledger", href: "/ledger" },
+      { label: "Leaderboard", href: "/leaderboard" },
     ],
   },
   hero: {
@@ -21,11 +23,7 @@ export const QUEST_CONFIG = {
       "Pick a task. Do the work. Stack your credits. Every mission you complete writes your name permanently into the Cardano ledger.",
     primaryCta: "START QUEST",
     secondaryCta: "BROWSE THE BOARD",
-    avatarStack: [
-      "/images/avatars/avatar-1.webp",
-      "/images/avatars/avatar-2.webp",
-      "/images/avatars/avatar-3.webp",
-    ],
+    // The avatar stack and headcount are real profiles, fetched in WarRoom.
     statLabel: "ACTIVE OPERATIVES",
   },
   operatives: [
@@ -59,69 +57,6 @@ export const QUEST_CONFIG = {
     ctaLabel: "VIEW ALL BOUNTIES",
   },
 
-  bounties: [
-    {
-      id: "infiltrate-data-vault",
-      category: "RESEARCH",
-      difficulty: "EASY",
-      title: "Infiltrate the Data Vault",
-      description:
-        "Access the primary archives and extract the missing historical logs regarding the fall of the first guild. Stealth is required; alerting...",
-      xp: 500,
-      featured: false,
-    },
-    {
-      id: "decrypt-core-protocol",
-      category: "CODE",
-      difficulty: "MEDIUM",
-      title: "Decrypt the Core Protocol",
-      description:
-        "A rogue AI has locked down the sector's main trading hub. Write a bypass script to override the security protocols and restore...",
-      xp: 1200,
-      featured: false,
-    },
-    {
-      id: "slay-synth-beast",
-      category: "COMBAT",
-      difficulty: "HARD",
-      title: "Slay the Synth-Beast",
-      description:
-        "A corrupted cybernetic abomination is terrorizing the lower levels. It is heavily armored and armed with plasma weaponry.",
-      xp: 3000,
-      featured: false,
-    },
-    {
-      id: "draft-resistance-banner",
-      category: "DESIGN",
-      difficulty: "EASY",
-      title: "Draft the Resistance Banner",
-      description:
-        "The newly formed alliance needs a symbol to rally behind. Create a striking emblem that incorporates elements of both the old...",
-      xp: 400,
-      featured: false,
-    },
-    {
-      id: "secure-supply-line",
-      category: "LOGISTICS",
-      difficulty: "MEDIUM",
-      title: "Secure the Supply Line",
-      description:
-        "Raiders have been intercepting energy cell shipments bound for Sector 7. Map a new, secure route through the hazardous...",
-      xp: 1500,
-      featured: false,
-    },
-    {
-      id: "assassinate-overlord",
-      category: "LEGENDARY",
-      difficulty: "HARD",
-      title: "Assassinate the Overlord",
-      description:
-        "The tyrannical ruler of the sky-city has oppressed the ground-dwellers for too long. Infiltrate the floating fortress, bypass...",
-      xp: 10000,
-      featured: true,
-    },
-  ],
-
   difficultyConfig: {
     EASY: {
       label: "EASY",
@@ -145,7 +80,8 @@ export const QUEST_CONFIG = {
     title: "THE ARSENAL",
     subtext:
       "Everything you need to earn, grow, and leave your mark on the realm. The tools are simple. What you build with them is up to you.",
-    ctaLabel: "DEPLOY PROTOCOL",
+    // Each feature carries its own ctaLabel naming where it goes — six identical
+    // buttons pointing at six different pages told the reader nothing.
     features: [
       {
         id: "post-a-mission",
@@ -153,6 +89,8 @@ export const QUEST_CONFIG = {
         title: "Post a Mission",
         description:
           "Have work that needs doing? Post it. Set the reward. Let the realm handle the rest.",
+        href: "/post",
+        ctaLabel: "POST A MISSION",
       },
       {
         id: "claim-a-bounty",
@@ -160,6 +98,8 @@ export const QUEST_CONFIG = {
         title: "Claim a Bounty",
         description:
           "Browse open tasks and lock one in. No bidding wars. First to claim, first to earn.",
+        href: "/missions",
+        ctaLabel: "BROWSE THE BOARD",
       },
       {
         id: "earn-credits",
@@ -167,6 +107,8 @@ export const QUEST_CONFIG = {
         title: "Earn ADA + XP",
         description:
           "Every completed mission pays out real ADA directly to your wallet plus XP that builds your on-chain reputation.",
+        href: "/how-it-works#rewards",
+        ctaLabel: "HOW REWARDS WORK",
       },
       {
         id: "build-your-record",
@@ -174,6 +116,8 @@ export const QUEST_CONFIG = {
         title: "Build Your Record",
         description:
           "Every task you complete adds to your public contribution history. Visible to all.",
+        href: "/record",
+        ctaLabel: "VIEW YOUR RECORD",
       },
       {
         id: "on-chain-proof",
@@ -181,6 +125,8 @@ export const QUEST_CONFIG = {
         title: "On-Chain Proof",
         description:
           "Completed missions are recorded on Cardano. Permanent. Verifiable. Yours forever.",
+        href: "/ledger",
+        ctaLabel: "OPEN THE LEDGER",
       },
       {
         id: "climb-the-ranks",
@@ -188,6 +134,8 @@ export const QUEST_CONFIG = {
         title: "Climb the Ranks",
         description:
           "The more you deliver, the higher you rise. Legend status is earned, not given.",
+        href: "/leaderboard",
+        ctaLabel: "SEE THE RANKINGS",
       },
     ],
   },
@@ -198,7 +146,7 @@ export const QUEST_CONFIG = {
     subtext:
       "Every operative starts at zero. The path from here is yours to walk.",
     ctaLabel: "ENTER THE GUILD",
-    ctaHref: "/signup",
+    ctaHref: "/realm",
     steps: [
       {
         id: "pick-your-mission",
@@ -267,11 +215,11 @@ export const QUEST_CONFIG = {
       "The shadows await your command. Will you forge your legacy or fade into obscurity?",
     primaryCta: {
       label: "START YOUR QUEST",
-      href: "/signup",
+      href: "/realm",
     },
     secondaryCta: {
       label: "JOIN THE COMMUNITY",
-      href: "#",
+      href: DISCORD_INVITE,
     },
     backgroundImage: "/images/gates-bg.webp",
   },
@@ -279,15 +227,17 @@ export const QUEST_CONFIG = {
   footer: {
     logo: "THE QUEST",
     links: [
+      { label: "HOW IT WORKS", href: "/how-it-works" },
       { label: "PRIVACY POLICY", href: "/privacy" },
       { label: "TERMS OF ENGAGEMENT", href: "/terms" },
-      { label: "SUPPORT", href: "/support" },
+      // Support has no page of its own; the Discord is where help actually happens.
+      { label: "SUPPORT", href: DISCORD_INVITE, external: true },
     ],
-    copyright: "© 2024 THE QUEST PROTOCOL. ALL RIGHTS RESERVED.",
+    copyright: "© 2026 THE QUEST PROTOCOL. ALL RIGHTS RESERVED.",
   },
   social: {
     x: "https://x.com/the_questgg",
-    discord: "https://discord.gg/tXSnBVqFp",
+    discord: DISCORD_INVITE,
   },
   realmNav: [
     { label: "Realm", href: "/realm", icon: "Home" },
