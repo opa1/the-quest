@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { GuardedLink } from "@/components/atoms/GuardedLink"
 import { QuestLogo } from "@/components/atoms/QuestLogo"
 import { MobileNav } from "@/components/molecules/MobileNav"
 import { NetworkSwitcher } from "@/components/molecules/NetworkSwitcher"
@@ -10,14 +12,23 @@ import { QUEST_CONFIG } from "@/lib/config/quest.config"
 import { useAuthGuard } from "@/lib/hooks/useAuthGuard"
 import { cn } from "@/lib/utils"
 
+/** '/#guild' -> 'guild'. Route links have no hash and yield null. */
+function anchorId(href: string): string | null {
+  const hash = href.indexOf("#")
+  return hash === -1 ? null : href.slice(hash + 1)
+}
+
 export function Navbar() {
   const { guardedNavigate } = useAuthGuard()
+  const pathname = usePathname()
   const [activeSection, setActiveSection] = useState("")
 
   useEffect(() => {
-    const sectionIds = QUEST_CONFIG.nav.links.map((l) =>
-      l.href.replace("#", "")
-    )
+    // Only the anchor links participate in scroll-spy; route links are matched
+    // against the pathname instead.
+    const sectionIds = QUEST_CONFIG.nav.links
+      .map((l) => anchorId(l.href))
+      .filter((id): id is string => id !== null)
 
     const onScroll = () => {
       if (window.scrollY === 0) {
@@ -48,10 +59,12 @@ export function Navbar() {
 
         <nav className="hidden items-center gap-6 lg:flex">
           {QUEST_CONFIG.nav.links.map((link) => {
-            const id = link.href.replace("#", "")
-            const isActive = activeSection === id
+            const id = anchorId(link.href)
+            const isActive = id
+              ? activeSection === id
+              : pathname === link.href || pathname.startsWith(`${link.href}/`)
             return (
-              <Link
+              <GuardedLink
                 key={link.href}
                 href={link.href}
                 className={cn(
@@ -68,7 +81,7 @@ export function Navbar() {
                     isActive ? "scale-x-100" : "scale-x-0"
                   )}
                 />
-              </Link>
+              </GuardedLink>
             )
           })}
         </nav>

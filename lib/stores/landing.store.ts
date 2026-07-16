@@ -2,25 +2,11 @@
 
 import { create } from 'zustand'
 import { createClient } from '@/lib/supabase/client'
-
-export type LandingMission = {
-  id: string
-  title: string
-  description: string
-  category: string
-  difficulty: string
-  reward_credits: number
-  ada_reward: number
-  proof_type: string
-  status: string
-  created_at: string
-  max_claimers?: number
-  approved_claimers?: number
-  deadline?: string | null
-}
+import type { Mission } from '@/lib/types/missions'
+import { attachClaimCounts } from '@/lib/utils/claim-counts'
 
 interface LandingState {
-  missions: LandingMission[]
+  missions: Mission[]
   isLoading: boolean
   lastFetched: number | null
   fetchMissions: () => Promise<void>
@@ -41,35 +27,26 @@ export const useLandingStore = create<LandingState>((set, get) => ({
 
     const { data } = await supabase
       .from('tasks')
-      .select('id, title, description, category, difficulty, reward_credits, ada_reward, max_claimers, deadline, proof_type, status, created_at')
-      .eq('status', 'open')
+      .select(`
+        id, title, description, category, difficulty,
+        reward_credits, ada_reward, max_claimers, reward_per_claimer, deadline,
+        proof_type, status, created_at, created_by,
+        profiles!tasks_created_by_fkey(username, avatar_url)
+      `)
+      // No status filter, matching the missions board and the realm feed. Filtering
+      // to 'open' meant the landing board emptied out the moment every mission was
+      // claimed, which silently fell through to placeholder bounties.
       .order('created_at', { ascending: false })
       .limit(6)
 
-    const missions = (data ?? []) as LandingMission[]
+    const missions = ((data as unknown as Mission[]) ?? [])
 
-    // Approved claim counts drive the slot progress bars on multi-claimer cards
-    const taskIds = missions.map((m) => m.id)
-    if (taskIds.length > 0) {
-      const { data: claimCounts } = await supabase
-        .from('task_claims')
-        .select('task_id')
-        .in('task_id', taskIds)
-        .eq('status', 'approved')
-
-      const approvedMap: Record<string, number> = {}
-      for (const row of claimCounts ?? []) {
-        approvedMap[row.task_id] = (approvedMap[row.task_id] ?? 0) + 1
-      }
-      missions.forEach((m) => {
-        m.approved_claimers = approvedMap[m.id] ?? 0
-      })
-    }
-
-    set({
-      missions,
-      isLoading: false,
-      lastFetched: now,
+    missions.forEach((m) => {
+      m.deadline_passed = !!m.deadline && new Date(m.deadline).getTime() < now
     })
+
+    await attachClaimCounts(supabase, missions)
+
+    set({ missions, isLoading: false, lastFetched: now })
   },
 }))

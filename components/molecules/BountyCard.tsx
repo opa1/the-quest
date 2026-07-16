@@ -16,6 +16,7 @@ import {
   Hourglass,
   type LucideIcon,
 } from "lucide-react"
+import { competingLabel } from "@/lib/utils/claim-counts"
 import { cn } from "@/lib/utils"
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD"
@@ -67,6 +68,8 @@ interface BountyCardProps {
   shareable?: boolean
   maxClaimers?: number
   approvedClaimers?: number
+  /** How many operatives are competing. Does not consume slots. */
+  submissionCount?: number
   deadline?: string | null
   deadlinePassed?: boolean
   rewardPerClaimer?: number
@@ -89,6 +92,7 @@ export function BountyCard({
   shareable,
   maxClaimers,
   approvedClaimers,
+  submissionCount,
   deadline,
   deadlinePassed,
   rewardPerClaimer,
@@ -186,19 +190,26 @@ export function BountyCard({
           </div>
 
           {maxClaimers && maxClaimers > 1 && (
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {approvedClaimers ?? 0} of {maxClaimers} slots filled
+            <div className="flex flex-col gap-1.5">
+              {/* Competition is phrased, not left as a bare number: a loose "50"
+                  beside a bar reads as the bar's own quantity, so an empty bar
+                  next to it looks broken. The only number touching the bar is
+                  the one it actually fills with. */}
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                {competingLabel(submissionCount, maxClaimers)}
+              </span>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/30">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, ((approvedClaimers ?? 0) / maxClaimers) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {approvedClaimers ?? 0} of {maxClaimers} paid
                 </span>
-              </div>
-              <div className="w-full h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-300"
-                  style={{
-                    width: `${Math.min(100, ((approvedClaimers ?? 0) / maxClaimers) * 100)}%`,
-                  }}
-                />
               </div>
             </div>
           )}

@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Menu, X, ArrowRight } from "lucide-react"
+import { GuardedLink } from "@/components/atoms/GuardedLink"
 import { QuestLogo } from "@/components/atoms/QuestLogo"
 import { Button } from "@/components/ui/button"
 import {
@@ -42,7 +42,7 @@ export function MobileNav() {
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4 py-6">
           {QUEST_CONFIG.nav.links.map((link) => (
             <SheetClose asChild key={link.href}>
-              <Link
+              <GuardedLink
                 href={link.href}
                 className={cn(
                   "flex items-center justify-between rounded-lg px-3 py-3.5",
@@ -53,7 +53,7 @@ export function MobileNav() {
               >
                 {link.label}
                 <ArrowRight className="size-3.5 opacity-40" />
-              </Link>
+              </GuardedLink>
             </SheetClose>
           ))}
         </nav>
@@ -72,11 +72,11 @@ export function MobileNav() {
             </span>
           </Button>
           <Button variant="outline" size="lg" className="w-full" asChild>
-            <a href="#bounty-board" onClick={() => setOpen(false)}>
+            <GuardedLink href="/missions" onNavigate={() => setOpen(false)}>
               <span className="text-sm font-bold tracking-widest uppercase">
                 Browse The Board
               </span>
-            </a>
+            </GuardedLink>
           </Button>
         </div>
       </SheetContent>

@@ -32,14 +32,13 @@ import { createClient } from "@/lib/supabase/server"
 import { sendAdaPayoutViaService } from "@/lib/cardano/server"
 import { verifyDepositCoversBounty } from "@/lib/cardano/verify-deposit"
 import {
-  claimTask,
-  dropTask,
   submitWork,
   approveWork,
   rejectWork,
   banUser,
   createMission,
   processDeadlineRefund,
+  closeMission,
 } from "@/app/actions/tasks"
 
 let db: FakeDb
@@ -136,6 +135,295 @@ function findRow(table: string, id: string): FakeRow | undefined {
 }
 
 const PAST_DEADLINE = new Date(Date.now() - 60_000).toISOString()
+
+describe("closeMission — untouched missions are deleted", () => {
+  it("deletes a mission nobody paid or submitted to, after refunding it", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-refund" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ success: true, deleted: true, refundAmount: 20_000_000 })
+    expect(findRow("tasks", "t1")).toBeUndefined()
+  })
+
+  // "Unpaid" is not "untouched" — someone awaiting review has done the work.
+  it("keeps a mission that has a submission, even with nobody paid", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "submitted", user_id: "hunter-1" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-refund" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ success: true })
+    expect(result).not.toHaveProperty("deleted", true)
+    expect(findRow("tasks", "t1")?.status).toBe("cancelled")
+    expect(findRow("task_claims", "c1")?.status).toBe("rejected")
+  })
+
+  it("keeps a mission that has already paid someone", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "approved" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-refund" })
+
+    await closeMission("t1")
+
+    expect(findRow("tasks", "t1")?.status).toBe("cancelled")
+    expect(findRow("tasks", "t1")).toBeDefined()
+  })
+
+  // Deleting before the refund lands would strand the ADA: the row carrying
+  // deposit_tx_hash and the retry lock would be gone.
+  it("does not delete when the refund fails, so the retry stays possible", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockRejectedValueOnce(new Error("network down"))
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "refund_failed" })
+    const task = findRow("tasks", "t1")
+    expect(task).toBeDefined()
+    expect(task?.refund_status).toBe("failed")
+
+    // ...and pressing Close again still finishes the job, then removes it.
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-retry" })
+    const retry = await closeMission("t1")
+    expect(retry).toMatchObject({ success: true, deleted: true })
+    expect(findRow("tasks", "t1")).toBeUndefined()
+  })
+
+  it("clears the mission's child rows so nothing is orphaned", async () => {
+    asUser("poster-1")
+    seedTask({ id: "t1", status: "open", max_claimers: 1, ada_reward: 0, reward_per_claimer: 0, created_by: "poster-1" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    db.task_logs = [{ id: "l1", task_id: "t1", user_id: "poster-1", action: "created" }]
+    db.task_bans = [{ id: "b1", task_id: "t1", user_id: "hunter-9" }]
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ success: true, deleted: true })
+    expect(findRow("tasks", "t1")).toBeUndefined()
+    expect(db.task_logs?.filter((l) => l.task_id === "t1").length).toBe(0)
+    expect(db.task_bans?.filter((b) => b.task_id === "t1").length).toBe(0)
+  })
+})
+
+describe("closeMission", () => {
+  // A claim exists, so the mission is kept and cancelled rather than deleted.
+  it("refunds unfilled slots and closes the mission", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 3,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "submitted", user_id: "hunter-1" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-close" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toEqual({ success: true, refundAmount: 30_000_000 })
+    const task = findRow("tasks", "t1")
+    expect(task?.status).toBe("cancelled")
+    expect(task?.refund_status).toBe("succeeded")
+  })
+
+  // The bug this action exists for: 3 slots, 1 approved, 1 rejected. The two
+  // unpaid slots must come back without waiting for a deadline the mission
+  // may not even have.
+  it("refunds only the slots nobody was paid for", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      deadline: null,
+      max_claimers: 3,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "approved" })
+    seedClaim({ id: "c2", task_id: "t1", status: "rejected", user_id: "hunter-2" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-close" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toEqual({ success: true, refundAmount: 20_000_000 })
+    expect(sendAdaPayoutViaService).toHaveBeenCalledWith(
+      "addr_test1poster",
+      20_000_000,
+      expect.anything()
+    )
+  })
+
+  it("rejects submissions still in review, refunds their slots, and tells the hunter", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "submitted", user_id: "hunter-1" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-close" })
+
+    const result = await closeMission("t1")
+
+    // Nothing was approved, so both slots refund.
+    expect(result).toEqual({ success: true, refundAmount: 20_000_000 })
+    expect(findRow("task_claims", "c1")?.status).toBe("rejected")
+    expect(
+      db.notifications?.some((n) => n.user_id === "hunter-1" && n.title === "Mission Closed")
+    ).toBe(true)
+  })
+
+  it("never reclaims ADA already paid out", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "approved" })
+    seedClaim({ id: "c2", task_id: "t1", status: "approved", user_id: "hunter-2" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toEqual({ success: true, refundAmount: 0 })
+    expect(findRow("tasks", "t1")?.status).toBe("completed")
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  it("only lets the poster close their own mission", async () => {
+    asUser("someone-else")
+    seedTask({ id: "t1", status: "open", created_by: "poster-1" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "not_poster" })
+    expect(findRow("tasks", "t1")?.status).toBe("open")
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  it("refuses to close an already-closed mission twice", async () => {
+    asUser("poster-1")
+    seedTask({ id: "t1", status: "cancelled", created_by: "poster-1" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "already_closed" })
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  // Nothing else retries a poster-initiated refund: the cron only acts on
+  // missions whose deadline has passed, and this one may not have a deadline at
+  // all. Pressing Close again has to be able to finish the job.
+  it("lets the poster retry a refund that failed, without paying twice", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      deadline: null,
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    // A pending submission keeps the mission around, so the retry is observable
+    // on the row itself rather than on a task that has been deleted.
+    seedClaim({ id: "c1", task_id: "t1", status: "submitted", user_id: "hunter-1" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+
+    vi.mocked(sendAdaPayoutViaService).mockRejectedValueOnce(new Error("network down"))
+    const first = await closeMission("t1")
+    expect(first).toMatchObject({ error: "refund_failed" })
+    expect(findRow("tasks", "t1")?.refund_status).toBe("failed")
+
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-retry" })
+    const second = await closeMission("t1")
+
+    expect(second).toEqual({ success: true, refundAmount: 20_000_000 })
+    expect(findRow("tasks", "t1")?.refund_status).toBe("succeeded")
+    expect(sendAdaPayoutViaService).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not re-refund a mission whose refund already succeeded", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "cancelled",
+      refund_status: "succeeded",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "already_closed" })
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  it("fails closed when the escrow deposit does not cover the bounty", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(verifyDepositCoversBounty).mockResolvedValue({
+      ok: false,
+      error: "deposit_too_small",
+    } as never)
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "deposit_too_small" })
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+})
 
 describe("processDeadlineRefund", () => {
   it("closes a fully-filled task without attempting a refund", async () => {
@@ -508,98 +796,117 @@ describe("approveWork", () => {
   })
 })
 
-describe("claimTask", () => {
-  it("claims an open mission and notifies the poster", async () => {
-    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
-    asUser("claimer-1")
-
-    const result = await claimTask("t1")
-
-    expect(result).toEqual({ success: true })
-    expect(db.task_claims?.some((c) => c.user_id === "claimer-1" && c.status === "claimed")).toBe(
-      true
-    )
-    expect(findRow("tasks", "t1")?.status).toBe("claimed")
-    expect(
-      db.notifications?.some((n) => n.user_id === "poster-1" && n.type === "mission_claimed")
-    ).toBe(true)
-  })
-
-  it("refuses a banned user", async () => {
-    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
-    db.task_bans = [{ id: "ban-1", task_id: "t1", user_id: "claimer-1" }]
-    asUser("claimer-1")
-
-    const result = await claimTask("t1")
-
-    expect(result.error).toBe("banned")
-  })
-
-  it("refuses a duplicate claim", async () => {
-    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
-    seedClaim({ task_id: "t1", user_id: "claimer-1", status: "claimed" })
-    asUser("claimer-1")
-
-    const result = await claimTask("t1")
-
-    expect(result.error).toBe("already_claimed")
-  })
-
-  it("refuses to claim once all slots are filled", async () => {
-    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
-    seedClaim({ task_id: "t1", user_id: "other-claimer", status: "claimed" })
-    asUser("claimer-2")
-
-    const result = await claimTask("t1")
-
-    expect(result.error).toBe("task_full")
-  })
-})
-
-describe("dropTask", () => {
-  it("drops an active claim and reopens the mission", async () => {
-    seedTask({ id: "t1", status: "claimed", created_by: "poster-1", max_claimers: 1 })
-    seedClaim({ id: "c1", task_id: "t1", user_id: "claimer-1", status: "claimed" })
-    asUser("claimer-1")
-
-    const result = await dropTask("t1")
-
-    expect(result).toEqual({ success: true })
-    expect(db.task_claims?.find((c) => c.id === "c1")).toBeUndefined()
-    expect(findRow("tasks", "t1")?.status).toBe("open")
-  })
-
-  it("refuses to drop when there is no active claim", async () => {
-    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
-    asUser("claimer-1")
-
-    const result = await dropTask("t1")
-
-    expect(result.error).toBe("not_claimer")
-  })
-})
-
 describe("submitWork", () => {
-  it("submits proof for a claimed mission and notifies the poster", async () => {
-    seedTask({ id: "t1", status: "claimed", created_by: "poster-1", max_claimers: 1 })
-    seedClaim({ id: "c1", task_id: "t1", user_id: "claimer-1", status: "claimed" })
-    asUser("claimer-1")
+  // The point of the redesign: no claim step, so a first-time submitter has no
+  // row yet and submitting creates one.
+  it("submits with no prior claim and notifies the poster", async () => {
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
+    asUser("hunter-1")
 
     const result = await submitWork("t1", { notes: "done" })
 
     expect(result).toEqual({ success: true })
-    expect(findRow("task_claims", "c1")?.status).toBe("submitted")
-    expect(findRow("tasks", "t1")?.status).toBe("submitted")
+    const claim = db.task_claims?.find((c) => c.user_id === "hunter-1")
+    expect(claim?.status).toBe("submitted")
     expect(
       db.notifications?.some((n) => n.user_id === "poster-1" && n.type === "proof_submitted")
     ).toBe(true)
   })
 
+  // Submitting reserves nothing — the mission stays claimable by everyone else
+  // until the poster actually approves someone.
+  it("leaves the mission open so others can still submit", async () => {
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
+    asUser("hunter-1")
+    await submitWork("t1", { notes: "first" })
+    expect(findRow("tasks", "t1")?.status).toBe("open")
+
+    asUser("hunter-2")
+    const second = await submitWork("t1", { notes: "second" })
+
+    expect(second).toEqual({ success: true })
+    expect(findRow("tasks", "t1")?.status).toBe("open")
+    expect(db.task_claims?.filter((c) => c.task_id === "t1").length).toBe(2)
+  })
+
+  it("lets any number of operatives compete for a multi-slot mission", async () => {
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 2 })
+
+    for (const hunter of ["h1", "h2", "h3", "h4", "h5"]) {
+      asUser(hunter)
+      expect(await submitWork("t1", { notes: hunter })).toEqual({ success: true })
+    }
+
+    expect(db.task_claims?.filter((c) => c.task_id === "t1").length).toBe(5)
+    expect(findRow("tasks", "t1")?.status).toBe("open")
+  })
+
+  it("reuses the existing row when resubmitting after a rejection", async () => {
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
+    seedClaim({
+      id: "c1",
+      task_id: "t1",
+      user_id: "hunter-1",
+      status: "rejected",
+      rejection_reason: "not good enough",
+    })
+    asUser("hunter-1")
+
+    const result = await submitWork("t1", { notes: "second attempt" })
+
+    expect(result).toEqual({ success: true })
+    expect(db.task_claims?.filter((c) => c.task_id === "t1").length).toBe(1)
+    const claim = findRow("task_claims", "c1")
+    expect(claim?.status).toBe("submitted")
+    expect(claim?.rejection_reason).toBeNull()
+  })
+
+  // Rows left behind by the old claim step still work — the migration leaves
+  // them in place rather than deleting them.
+  it("reuses a legacy 'claimed' row from before the claim step was removed", async () => {
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
+    seedClaim({ id: "c1", task_id: "t1", user_id: "hunter-1", status: "claimed" })
+    asUser("hunter-1")
+
+    const result = await submitWork("t1", { notes: "done" })
+
+    expect(result).toEqual({ success: true })
+    expect(db.task_claims?.filter((c) => c.task_id === "t1").length).toBe(1)
+    expect(findRow("task_claims", "c1")?.status).toBe("submitted")
+  })
+
+  it("refuses a second submission while one is awaiting review", async () => {
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
+    seedClaim({ id: "c1", task_id: "t1", user_id: "hunter-1", status: "submitted" })
+    asUser("hunter-1")
+
+    const result = await submitWork("t1", { notes: "again" })
+
+    expect(result.error).toBe("already_submitted")
+  })
+
+  it("refuses to submit to a closed mission", async () => {
+    seedTask({ id: "t1", status: "cancelled", created_by: "poster-1", max_claimers: 1 })
+    asUser("hunter-1")
+
+    const result = await submitWork("t1", { notes: "done" })
+
+    expect(result.error).toBe("task_closed")
+  })
+
+  it("refuses the poster submitting to their own mission", async () => {
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
+    asUser("poster-1")
+
+    const result = await submitWork("t1", { notes: "done" })
+
+    expect(result.error).toBe("cannot_submit_own_task")
+  })
+
   it("refuses a banned user", async () => {
-    seedTask({ id: "t1", status: "claimed", created_by: "poster-1", max_claimers: 1 })
-    seedClaim({ id: "c1", task_id: "t1", user_id: "claimer-1", status: "claimed" })
-    db.task_bans = [{ id: "ban-1", task_id: "t1", user_id: "claimer-1" }]
-    asUser("claimer-1")
+    seedTask({ id: "t1", status: "open", created_by: "poster-1", max_claimers: 1 })
+    db.task_bans = [{ id: "ban-1", task_id: "t1", user_id: "hunter-1" }]
+    asUser("hunter-1")
 
     const result = await submitWork("t1", { notes: "done" })
 

@@ -7,17 +7,12 @@ import { HeroActions } from "@/components/molecules/HeroActions"
 import { OperativeStack } from "@/components/molecules/OperativeStack"
 import { SocialLinks } from "@/components/molecules/SocialLinks"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
+import { fetchCommunityStats } from "@/lib/utils/community"
 
-export function WarRoom() {
-  const {
-    chapterLabel,
-    headlineTop,
-    headlineBottom,
-    subtext,
-    statLabel,
-    avatarStack,
-  } = QUEST_CONFIG.hero
-  const { activeOperatives } = QUEST_CONFIG.stats
+export async function WarRoom() {
+  const { chapterLabel, headlineTop, headlineBottom, subtext, statLabel } =
+    QUEST_CONFIG.hero
+  const { operativeCount, avatars } = await fetchCommunityStats()
 
   return (
     <SectionWrapper
@@ -39,8 +34,8 @@ export function WarRoom() {
           </p>
           <HeroActions />
           <AvatarStack
-            avatars={avatarStack as unknown as string[]}
-            count={activeOperatives}
+            avatars={avatars}
+            count={operativeCount}
             label={statLabel}
           />
           <SocialLinks />

@@ -3,6 +3,7 @@
 import { create } from "zustand"
 import { createClient } from "@/lib/supabase/client"
 import type { Mission, MissionFilters } from "@/lib/types/missions"
+import { attachClaimCounts } from "@/lib/utils/claim-counts"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 
 interface MissionsState {
@@ -130,23 +131,7 @@ export const useMissionsStore = create<MissionsState>((set, get) => ({
       m.deadline_passed = !!m.deadline && new Date(m.deadline).getTime() < now
     })
 
-    // Approved claim counts drive the slot progress bars on multi-claimer cards
-    const taskIds = newMissions.map((m) => m.id)
-    if (taskIds.length > 0) {
-      const { data: claimCounts } = await supabase
-        .from("task_claims")
-        .select("task_id")
-        .in("task_id", taskIds)
-        .eq("status", "approved")
-
-      const approvedMap: Record<string, number> = {}
-      for (const row of claimCounts ?? []) {
-        approvedMap[row.task_id] = (approvedMap[row.task_id] ?? 0) + 1
-      }
-      newMissions.forEach((m) => {
-        m.approved_claimers = approvedMap[m.id] ?? 0
-      })
-    }
+    await attachClaimCounts(supabase, newMissions)
 
     const merged = reset ? newMissions : [...missions, ...newMissions]
 

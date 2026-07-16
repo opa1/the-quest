@@ -5,7 +5,12 @@ export function FooterLinks() {
   return (
     <div className="flex items-center gap-8 flex-wrap justify-center">
       {QUEST_CONFIG.footer.links.map((link) => (
-        <FooterLink key={link.href} label={link.label} href={link.href} />
+        <FooterLink
+          key={link.href}
+          label={link.label}
+          href={link.href}
+          external={'external' in link && link.external}
+        />
       ))}
     </div>
   )

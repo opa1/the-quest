@@ -29,7 +29,8 @@ export type MissionCategory =
 export type MissionDifficulty = 'ALL' | 'easy' | 'medium' | 'hard'
 export type MissionSort = 'newest' | 'oldest' | 'reward'
 export type MissionView = 'ALL' | 'MINE'
-// ALL: open + completed (date order) · OPEN: hide completed · OPEN_FIRST: completed pushed to the bottom
+// ALL: every status, date order · OPEN: only claimable ones · OPEN_FIRST: everything,
+// ranked open → claimed → submitted → completed → cancelled
 export type MissionStatusFilter = 'ALL' | 'OPEN' | 'OPEN_FIRST'
 
 export interface MissionFilters {
@@ -106,7 +107,10 @@ export interface Mission {
   ada_reward?: number
   max_claimers?: number
   reward_per_claimer?: number
+  /** Slots paid out. Only this fills the progress bar. */
   approved_claimers?: number
+  /** Operatives competing. Submitting reserves no slot. */
+  submission_count?: number
   deadline?: string | null
   proof_type?: 'url' | 'text' | 'image' | 'any'
   proof_notes?: string | null

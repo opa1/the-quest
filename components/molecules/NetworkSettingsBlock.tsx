@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { switchNetwork } from '@/app/actions/network'
+import { networkSwitchDestination } from '@/lib/config/routes'
 import { NETWORK_SWITCHED_PARAM, type Network } from '@/lib/config/network'
 
 interface NetworkSettingsBlockProps {
@@ -29,10 +30,11 @@ export default function NetworkSettingsBlock({
     startTransition(async () => {
       await switchNetwork(target)
       // Full page load, not router.push: a soft navigation leaves the already
-      // initialised browser Supabase client on the old network. Land on home —
-      // the target network has its own session, so the user may need to
-      // authenticate or migrate there.
-      window.location.href = `/?${NETWORK_SWITCHED_PARAM}=${target}`
+      // initialised browser Supabase client on the old network. Lands back on
+      // this page; if the target network has no session for the user, the
+      // protected layout redirects them home to authenticate or migrate.
+      const dest = networkSwitchDestination(window.location.pathname)
+      window.location.href = `${dest}?${NETWORK_SWITCHED_PARAM}=${target}`
     })
   }
 

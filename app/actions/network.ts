@@ -17,7 +17,8 @@ import {
 // user is currently on against the network they just left behind — a route they
 // may have no session for, and whose data lives in the other database — which
 // crashes before the caller can navigate away. Callers follow this with a full
-// page load to `/`, which re-renders everything on the new network anyway.
+// page load, which re-renders everything on the new network anyway. See
+// networkSwitchDestination for where that load lands.
 export async function switchNetwork(network: Network) {
   const store = await cookies()
   store.set(ACTIVE_NETWORK_COOKIE, normalizeNetwork(network), {
