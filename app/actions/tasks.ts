@@ -886,31 +886,42 @@ export async function markTaskNotificationsRead(taskId: string) {
     .eq("read", false)
 }
 
-export async function processDeadlineRefund(
-  taskId: string,
-  // Non-request context (cron): the caller passes the task's own network.
-  network: Network = "Preprod"
+// Columns closeAndRefundUnfilled needs to do its job.
+const REFUND_TASK_COLUMNS =
+  "id, title, created_by, max_claimers, reward_per_claimer, ada_reward, status, deadline, refund_status, deposit_tx_hash"
+
+type RefundableTask = {
+  id: string
+  title: string
+  created_by: string
+  max_claimers: number | null
+  reward_per_claimer: number | null
+  ada_reward: number | null
+  status: string
+  refund_status: string | null
+  deposit_tx_hash: string | null
+}
+
+/**
+ * Close a task and refund every slot nobody was ever paid for.
+ *
+ * Shared by the deadline cron and the poster's manual close. Those two differ
+ * only in what authorises them and what the poster gets told afterwards — the
+ * way money moves must not diverge, which is why this lives in one place.
+ *
+ * Refunds cover max_claimers minus approved claims, fail closed if the on-chain
+ * deposit doesn't cover the bounty, and are guarded by the refund_status lock so
+ * a retry or a concurrent call can never send the same refund twice. Callers are
+ * responsible for their own preconditions (deadline reached, caller is poster).
+ */
+async function closeAndRefundUnfilled(
+  adminClient: AdminClient,
+  task: RefundableTask,
+  network: Network,
+  trigger: "deadline" | "poster"
 ): Promise<{ success: boolean; refundAmount?: number; error?: string }> {
-  const adminClient = createAdminClient(network)
-
-  const { data: task } = await adminClient
-    .from("tasks")
-    .select(
-      "id, title, created_by, max_claimers, reward_per_claimer, ada_reward, status, deadline, refund_status, deposit_tx_hash"
-    )
-    .eq("id", taskId)
-    .single()
-
-  if (!task) return { success: false, error: "not_found" }
-  if (!task.deadline || new Date(task.deadline) > new Date())
-    return { success: false, error: "deadline_not_reached" }
-
-  // Closed and either no refund was ever needed, or it already succeeded -
-  // nothing left to do. A closed task with a pending/failed refund_status
-  // still needs to be retried below.
+  const taskId = task.id
   const isClosed = task.status === "completed" || task.status === "cancelled"
-  if (isClosed && task.refund_status !== "pending" && task.refund_status !== "failed")
-    return { success: false, error: "already_closed" }
 
   // Count approved claims
   const { count: approvedCount } = await adminClient
@@ -1004,7 +1015,7 @@ export async function processDeadlineRefund(
         task_id: taskId,
         user_id: task.created_by,
         action: "cancelled",
-        notes: `Deadline refund: ${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""}`,
+        notes: `${trigger === "deadline" ? "Deadline refund" : "Mission closed by poster"}: ${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""}`,
         cardano_tx_hash: refundResult.txHash,
       })
     } else {
@@ -1027,13 +1038,18 @@ export async function processDeadlineRefund(
   }
 
   // Notify poster - only reached once the refund has actually succeeded.
+  const slotLabel = `${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""}`
   await createNotification({
     userId: task.created_by,
     network,
     type: "deadline_refund",
     category: "reward",
-    title: "Mission Deadline Reached",
-    message: `Your mission "${task.title}" deadline passed. ${unfilledSlots} unfilled slot${unfilledSlots > 1 ? "s" : ""} refunded.`,
+    title:
+      trigger === "deadline" ? "Mission Deadline Reached" : "Mission Closed",
+    message:
+      trigger === "deadline"
+        ? `Your mission "${task.title}" deadline passed. ${slotLabel} refunded.`
+        : `You closed "${task.title}". ${slotLabel} refunded to your wallet.`,
     actionUrl: `/tasks/${taskId}`,
   })
 
@@ -1042,6 +1058,127 @@ export async function processDeadlineRefund(
   revalidatePath("/realm")
 
   return { success: true, refundAmount: refundLovelace }
+}
+
+/**
+ * Poster pulls a live mission and takes back the ADA for slots nobody was paid
+ * for. Without this the money is stranded: rejecting a submission reopens the
+ * slot but nothing refunds it, and before this existed the only route to a
+ * refund was waiting out the deadline — which a mission posted without one
+ * never reaches.
+ *
+ * Submissions still awaiting review are rejected first, so their slots count as
+ * unfilled and come back in the refund. Anything already approved is left
+ * alone: that ADA has left the wallet and is not ours to reclaim.
+ */
+export async function closeMission(taskId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user)
+    return { error: "not_authenticated", message: "You must be signed in." }
+
+  const network = await getActiveNetwork()
+  const admin = createAdminClient(network)
+
+  const { data: task } = await admin
+    .from("tasks")
+    .select(REFUND_TASK_COLUMNS)
+    .eq("id", taskId)
+    .single<RefundableTask>()
+
+  if (!task) return { error: "not_found", message: "Mission not found." }
+  if (task.created_by !== user.id)
+    return {
+      error: "not_poster",
+      message: "Only the mission poster can close it.",
+    }
+
+  // An already-closed mission is only re-closable to retry a refund that failed
+  // — pressing Close again is the poster's retry. Nothing else retries this:
+  // the cron only refunds missions whose deadline has passed, so a mission
+  // posted without one would strand its ADA on a single failure.
+  const isClosed = task.status === "completed" || task.status === "cancelled"
+  if (isClosed && task.refund_status !== "failed")
+    return { error: "already_closed", message: "This mission is already closed." }
+
+  // Reject anything still in review so its slot is refundable. Done before the
+  // refund is priced, since closeAndRefundUnfilled counts approved claims to
+  // decide what is owed back.
+  const { data: pending } = await admin
+    .from("task_claims")
+    .select("id, user_id")
+    .eq("task_id", taskId)
+    .eq("status", "submitted")
+
+  for (const claim of pending ?? []) {
+    await admin
+      .from("task_claims")
+      .update({
+        status: "rejected",
+        rejection_reason: "The poster closed this mission before review.",
+      })
+      .eq("id", claim.id)
+
+    if (claim.user_id) {
+      await admin
+        .from("task_proofs")
+        .delete()
+        .eq("task_id", taskId)
+        .eq("submitted_by", claim.user_id)
+
+      // They did the work and are getting nothing, so say so plainly rather
+      // than letting the submission quietly vanish.
+      await createNotification({
+        userId: claim.user_id,
+        actorId: user.id,
+        network,
+        type: "submission_rejected",
+        category: "mission",
+        title: "Mission Closed",
+        message: `"${task.title}" was closed by the poster before your submission was reviewed.`,
+        actionUrl: `/tasks/${taskId}`,
+      })
+    }
+  }
+
+  const result = await closeAndRefundUnfilled(admin, task, network, "poster")
+  if (!result.success)
+    return {
+      error: result.error ?? "close_failed",
+      message:
+        "The mission is closed, but the refund did not go through. Press Close again to retry it.",
+    }
+
+  return { success: true as const, refundAmount: result.refundAmount ?? 0 }
+}
+
+export async function processDeadlineRefund(
+  taskId: string,
+  // Non-request context (cron): the caller passes the task's own network.
+  network: Network = "Preprod"
+): Promise<{ success: boolean; refundAmount?: number; error?: string }> {
+  const adminClient = createAdminClient(network)
+
+  const { data: task } = await adminClient
+    .from("tasks")
+    .select(REFUND_TASK_COLUMNS)
+    .eq("id", taskId)
+    .single<RefundableTask & { deadline: string | null }>()
+
+  if (!task) return { success: false, error: "not_found" }
+  if (!task.deadline || new Date(task.deadline) > new Date())
+    return { success: false, error: "deadline_not_reached" }
+
+  // Closed and either no refund was ever needed, or it already succeeded -
+  // nothing left to do. A closed task with a pending/failed refund_status
+  // still needs to be retried below.
+  const isClosed = task.status === "completed" || task.status === "cancelled"
+  if (isClosed && task.refund_status !== "pending" && task.refund_status !== "failed")
+    return { success: false, error: "already_closed" }
+
+  return closeAndRefundUnfilled(adminClient, task, network, "deadline")
 }
 
 async function sendAdaPayout(

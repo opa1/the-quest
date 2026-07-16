@@ -32,6 +32,7 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
       `
       id, title, description, category, difficulty,
       reward_credits, ada_reward, proof_type, status, created_at, claimed_at, completed_at,
+      refund_status,
       created_by,
       claimed_by,
       max_claimers,
@@ -165,7 +166,10 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             submittedCount={submittedCount}
             approvedClaimers={approvedCount}
             deadline={task.deadline ?? null}
-            rewardPerClaimer={task.reward_per_claimer ?? 0}
+            refundStatus={task.refund_status ?? null}
+            // Raw, not `?? 0`: the refund falls back to ada_reward when this is
+            // null, and the panel has to price its preview the same way.
+            rewardPerClaimer={task.reward_per_claimer ?? undefined}
             xp={task.reward_credits}
             adaReward={task.ada_reward ?? 0}
             txHash={txHash}

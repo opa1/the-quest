@@ -40,6 +40,7 @@ import {
   banUser,
   createMission,
   processDeadlineRefund,
+  closeMission,
 } from "@/app/actions/tasks"
 
 let db: FakeDb
@@ -136,6 +137,186 @@ function findRow(table: string, id: string): FakeRow | undefined {
 }
 
 const PAST_DEADLINE = new Date(Date.now() - 60_000).toISOString()
+
+describe("closeMission", () => {
+  it("refunds unfilled slots and closes the mission", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 3,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-close" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toEqual({ success: true, refundAmount: 30_000_000 })
+    const task = findRow("tasks", "t1")
+    expect(task?.status).toBe("cancelled")
+    expect(task?.refund_status).toBe("succeeded")
+  })
+
+  // The bug this action exists for: 3 slots, 1 approved, 1 rejected. The two
+  // unpaid slots must come back without waiting for a deadline the mission
+  // may not even have.
+  it("refunds only the slots nobody was paid for", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      deadline: null,
+      max_claimers: 3,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "approved" })
+    seedClaim({ id: "c2", task_id: "t1", status: "rejected", user_id: "hunter-2" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-close" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toEqual({ success: true, refundAmount: 20_000_000 })
+    expect(sendAdaPayoutViaService).toHaveBeenCalledWith(
+      "addr_test1poster",
+      20_000_000,
+      expect.anything()
+    )
+  })
+
+  it("rejects submissions still in review, refunds their slots, and tells the hunter", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "submitted", user_id: "hunter-1" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-close" })
+
+    const result = await closeMission("t1")
+
+    // Nothing was approved, so both slots refund.
+    expect(result).toEqual({ success: true, refundAmount: 20_000_000 })
+    expect(findRow("task_claims", "c1")?.status).toBe("rejected")
+    expect(
+      db.notifications?.some((n) => n.user_id === "hunter-1" && n.title === "Mission Closed")
+    ).toBe(true)
+  })
+
+  it("never reclaims ADA already paid out", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedClaim({ id: "c1", task_id: "t1", status: "approved" })
+    seedClaim({ id: "c2", task_id: "t1", status: "approved", user_id: "hunter-2" })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toEqual({ success: true, refundAmount: 0 })
+    expect(findRow("tasks", "t1")?.status).toBe("completed")
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  it("only lets the poster close their own mission", async () => {
+    asUser("someone-else")
+    seedTask({ id: "t1", status: "open", created_by: "poster-1" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "not_poster" })
+    expect(findRow("tasks", "t1")?.status).toBe("open")
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  it("refuses to close an already-closed mission twice", async () => {
+    asUser("poster-1")
+    seedTask({ id: "t1", status: "cancelled", created_by: "poster-1" })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "already_closed" })
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  // Nothing else retries a poster-initiated refund: the cron only acts on
+  // missions whose deadline has passed, and this one may not have a deadline at
+  // all. Pressing Close again has to be able to finish the job.
+  it("lets the poster retry a refund that failed, without paying twice", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      deadline: null,
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+
+    vi.mocked(sendAdaPayoutViaService).mockRejectedValueOnce(new Error("network down"))
+    const first = await closeMission("t1")
+    expect(first).toMatchObject({ error: "refund_failed" })
+    expect(findRow("tasks", "t1")?.refund_status).toBe("failed")
+
+    vi.mocked(sendAdaPayoutViaService).mockResolvedValueOnce({ txHash: "tx-retry" })
+    const second = await closeMission("t1")
+
+    expect(second).toEqual({ success: true, refundAmount: 20_000_000 })
+    expect(findRow("tasks", "t1")?.refund_status).toBe("succeeded")
+    expect(sendAdaPayoutViaService).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not re-refund a mission whose refund already succeeded", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "cancelled",
+      refund_status: "succeeded",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "already_closed" })
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+
+  it("fails closed when the escrow deposit does not cover the bounty", async () => {
+    asUser("poster-1")
+    seedTask({
+      id: "t1",
+      status: "open",
+      max_claimers: 2,
+      reward_per_claimer: 10_000_000,
+      created_by: "poster-1",
+    })
+    seedProfile({ id: "poster-1", wallet_address: "addr_test1poster" })
+    vi.mocked(verifyDepositCoversBounty).mockResolvedValue({
+      ok: false,
+      error: "deposit_too_small",
+    } as never)
+
+    const result = await closeMission("t1")
+
+    expect(result).toMatchObject({ error: "deposit_too_small" })
+    expect(sendAdaPayoutViaService).not.toHaveBeenCalled()
+  })
+})
 
 describe("processDeadlineRefund", () => {
   it("closes a fully-filled task without attempting a refund", async () => {

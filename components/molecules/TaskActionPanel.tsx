@@ -9,8 +9,21 @@ import { AdaReward } from "@/components/atoms/AdaReward"
 import UserAvatar from "@/components/atoms/UserAvatar"
 import TimeAgo from "@/components/atoms/TimeAgo"
 import OnChainProofBlock from "@/components/atoms/OnChainProofBlock"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useAuthStore } from "@/lib/stores/auth.store"
-import { claimTask, dropTask } from "@/app/actions/tasks"
+import { useAda } from "@/lib/hooks/useAda"
+import { formatAda } from "@/lib/utils/currency"
+import { claimTask, dropTask, closeMission } from "@/app/actions/tasks"
 import { QUEST_CONFIG } from "@/lib/config/quest.config"
 import {
   Loader2,
@@ -32,6 +45,7 @@ interface TaskActionPanelProps {
   submittedCount: number
   approvedClaimers?: number
   deadline?: string | null
+  refundStatus?: string | null
   rewardPerClaimer?: number
   xp: number
   adaReward: number
@@ -52,6 +66,7 @@ export default function TaskActionPanel({
   submittedCount,
   approvedClaimers,
   deadline,
+  refundStatus,
   rewardPerClaimer,
   xp,
   adaReward,
@@ -62,6 +77,7 @@ export default function TaskActionPanel({
   poster,
 }: TaskActionPanelProps) {
   const { user, openDialog } = useAuthStore()
+  const { network } = useAda()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -123,6 +139,34 @@ export default function TaskActionPanel({
     setLocalClaim(null)
     setIsLoading(false)
   }
+
+  const handleClose = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    const result = await closeMission(taskId)
+
+    if ("error" in result && result.error) {
+      setError(result.message ?? "Something went wrong. Please try again.")
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(false)
+    // Server-rendered status/slots drive this panel, so re-read rather than
+    // patching local state to match.
+    window.location.reload()
+  }
+
+  // Mirrors closeAndRefundUnfilled: only slots nobody was paid for come back,
+  // priced the same way the server prices them.
+  const unfilledSlots = Math.max(0, maxClaimers - (approvedClaimers ?? 0))
+  const refundPreview = unfilledSlots * (rewardPerClaimer ?? adaReward)
+
+  const isClosed = status === "completed" || status === "cancelled"
+  // Nothing retries a poster-initiated refund automatically — the cron only
+  // touches missions past their deadline — so the poster needs a way back in.
+  const canRetryRefund = isCreator && isClosed && refundStatus === "failed"
 
   const claimButton = (
     <Button
@@ -251,7 +295,7 @@ export default function TaskActionPanel({
 
         {/* Creator */}
         {!isTaskComplete && isCreator && (
-          <>
+          <div className="flex flex-col gap-3">
             {submittedCount > 0 ? (
               <Button variant="default" size="lg" className="w-full" asChild>
                 <a href={`/tasks/${taskId}/review`}>
@@ -265,7 +309,96 @@ export default function TaskActionPanel({
                 {actions.youPosted}
               </div>
             )}
-          </>
+
+            {/* Pull the mission and take back the ADA for slots nobody was paid
+                for. Without this the deposit is stuck until the deadline — and
+                a mission posted without one never reaches it. */}
+            {!isClosed && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive"
+                    disabled={isLoading}
+                  >
+                    <span className="text-xs font-bold tracking-widest uppercase">
+                      {isLoading ? "CLOSING..." : "Close Mission"}
+                    </span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Close this mission?</AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                        <span>
+                          It comes off the board and nobody can submit to it
+                          again. This cannot be undone.
+                        </span>
+                        {refundPreview > 0 && (
+                          <span>
+                            <strong className="text-foreground">
+                              {formatAda(refundPreview, network)}
+                            </strong>{" "}
+                            for {unfilledSlots} unfilled slot
+                            {unfilledSlots > 1 ? "s" : ""} will be refunded to
+                            your wallet. Anything you already approved stays
+                            paid.
+                          </span>
+                        )}
+                        {submittedCount > 0 && (
+                          <span className="text-destructive">
+                            {submittedCount} submission
+                            {submittedCount > 1 ? "s are" : " is"} still awaiting
+                            review and will be rejected. Consider reviewing
+                            {submittedCount > 1 ? " them" : " it"} first.
+                          </span>
+                        )}
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep it open</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClose}>
+                      Close and refund
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        )}
+
+        {/* The mission closed but the ADA never made it back. Surfaced rather
+            than left silent: no cron will pick this up if the mission had no
+            deadline, so the poster pressing this is the only retry there is. */}
+        {canRetryRefund && (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-2 rounded-[10px] border border-destructive/40 bg-destructive/5 px-3 py-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-semibold tracking-widest text-destructive uppercase">
+                  Refund Failed
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  This mission closed but {formatAda(refundPreview, network)}{" "}
+                  did not make it back to your wallet.
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={handleClose}
+              disabled={isLoading}
+            >
+              <span className="text-xs font-bold tracking-widest uppercase">
+                {isLoading ? "RETRYING..." : "Retry Refund"}
+              </span>
+            </Button>
+          </div>
         )}
 
         {/* Viewer holds an active claim */}
