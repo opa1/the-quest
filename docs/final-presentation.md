@@ -70,7 +70,7 @@ Demo flow:
 8. Open the completed mission and its on-chain proof block linking to Cardanoscan
 9. The Public Ledger at [thequesters.fun/ledger](https://thequesters.fun/ledger): every completion, verifiable by anyone
 
-**Backup demo video:** [TODO: record a 3 to 5 minute walkthrough of the flow above and paste the public link here]
+**Demo and final presentation video:** [TheQuest — Final Presentation for The Piece of Pie 2026](https://odysee.com/@opa:08/thequest-final-presentation:5)
 
 ---
 
@@ -243,7 +243,7 @@ The remaining slot stays open and funded until claimed and approved, or until th
 **Project name:** The Quest
 **Repo:** [github.com/opa1/the-quest](https://github.com/opa1/the-quest)
 **Live product:** [thequesters.fun](https://thequesters.fun)
-**Demo video link:** [TODO]
+**Demo and presentation video:** [odysee.com/@opa:08/thequest-final-presentation](https://odysee.com/@opa:08/thequest-final-presentation:5)
 **X account:** [@the_questgg](https://x.com/the_questgg) (weekly updates posted from [@Opa007i](https://x.com/Opa007i))
 
 **Weekly update posts:**
