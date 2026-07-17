@@ -8,6 +8,7 @@ import { XPReward } from "@/components/atoms/XPReward"
 import { AdaReward } from "@/components/atoms/AdaReward"
 import UserAvatar from "@/components/atoms/UserAvatar"
 import TimeAgo from "@/components/atoms/TimeAgo"
+import EscrowProof from "@/components/molecules/EscrowProof"
 import PayoutProofList, { type Payout } from "@/components/molecules/PayoutProofList"
 import {
   AlertDialog,
@@ -52,6 +53,8 @@ interface TaskActionPanelProps {
   adaReward: number
   /** Everyone this mission has actually paid, newest first. May be empty. */
   payouts: Payout[]
+  /** The poster's escrow deposit. Null on missions predating escrow. */
+  depositTxHash?: string | null
   /** Resolved from the cookie server-side — see the note at the call site. */
   network: Network
   claimedAt: string | null
@@ -75,6 +78,7 @@ export default function TaskActionPanel({
   xp,
   adaReward,
   payouts,
+  depositTxHash,
   network,
   claimedAt,
   claimer,
@@ -488,6 +492,17 @@ export default function TaskActionPanel({
       )}
 
       {/* On-chain proof - completed only */}
+      {/* Money in, before money out. Mirrors approveWork's totalBounty exactly,
+          so the figure shown is the one verifyDepositCoversBounty checks
+          on-chain before releasing anything. */}
+      <EscrowProof
+        depositTxHash={depositTxHash ?? null}
+        totalEscrow={
+          isMulti ? maxClaimers * (rewardPerClaimer ?? 0) : adaReward
+        }
+        network={network}
+      />
+
       {/* Not gated on 'completed': a mission that has paid one of two hunters
           has still moved real ADA, and the proof of it belongs here. */}
       <PayoutProofList

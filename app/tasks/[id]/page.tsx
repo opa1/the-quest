@@ -33,7 +33,7 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
       `
       id, title, description, category, difficulty,
       reward_credits, ada_reward, proof_type, status, created_at, claimed_at, completed_at,
-      refund_status,
+      refund_status, deposit_tx_hash,
       created_by,
       claimed_by,
       max_claimers,
@@ -195,6 +195,7 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             xp={task.reward_credits}
             adaReward={task.ada_reward ?? 0}
             payouts={payouts}
+            depositTxHash={task.deposit_tx_hash ?? null}
             // Server-resolved from the cookie rather than useAda in the client,
             // which reports DEFAULT_NETWORK until it mounts and would point the
             // explorer links at the wrong chain until hydration.
