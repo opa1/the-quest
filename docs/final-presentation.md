@@ -13,8 +13,7 @@
   - Builder Pie
   - Cardano Pie
   - Real User Pie
-
-> TODO: add Feedback Pie back to this list only if you have recorded sessions. If you do, restore the Feedback section at the bottom of this file.
+  - Feedback Pie
 
 ---
 
@@ -205,12 +204,12 @@ All twelve posted from [@Opa007i](https://x.com/Opa007i).
 
 | Poster                                   | Mission                                                                                                                | ADA funded | Mainnet deposit tx                                                                                                    |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
-| [@skypiedao](https://x.com/skypiedao)    | [SKYPIE CRYPTO WORLD CUP PREDICTION ARENA ARGENTINA VS ENGLAND](https://thequesters.fun/tasks/e03d1f94-8df9-4edf-94aa-a18b1d7d7835) | 30 ADA     | [`5a06c416...74ff70`](https://cardanoscan.io/transaction/5a06c416b50832a47ad68bba671fbbf306a931241505be0433551d079a74ff70) |
-| [@opa007i](https://x.com/Opa007i)        | [⚔️ WELCOME ONBOARD TO THE QUEST ⚔️ TAKE THE CHALLENGE TO X](https://thequesters.fun/tasks/66727ad2-9b4a-4bd0-96e7-a4f8fd8ac5d5)    | 39.99 ADA  | [`e4249d12...e2e576`](https://cardanoscan.io/transaction/e4249d1224999f0c12e8dca3be3e714a5c2cb02524787f7519918bd8a4e2e576) |
+| @skypiedao                        | [SKYPIE CRYPTO WORLD CUP PREDICTION ARENA ARGENTINA VS ENGLAND](https://thequesters.fun/tasks/e03d1f94-8df9-4edf-94aa-a18b1d7d7835) | 30 ADA     | [`5a06c416...74ff70`](https://cardanoscan.io/transaction/5a06c416b50832a47ad68bba671fbbf306a931241505be0433551d079a74ff70) |
+| [@opa007i](https://x.com/Opa007i) | [⚔️ WELCOME ONBOARD TO THE QUEST ⚔️ TAKE THE CHALLENGE TO X](https://thequesters.fun/tasks/66727ad2-b881-4862-a826-90bc3e1923b8)    | 39.99 ADA  | [`e4249d12...e2e576`](https://cardanoscan.io/transaction/e4249d1224999f0c12e8dca3be3e714a5c2cb02524787f7519918bd8a4e2e576) |
 
 ## Real User Slide B: Customer Acquisition Story
 
-**Who the user is:** [Skypie DAO](https://x.com/skypiedao) — a Cardano community organisation. We partnered directly with their admin, who posted a funded bounty on The Quest.
+**Who the user is:** Skypie DAO — a Cardano community organisation. We partnered directly with their admin, who posted a funded bounty on The Quest.
 
 **How they found the product:** We built a community around The Quest throughout the 12 weeks of the hackathon, shipping in public with weekly updates, an active [Discord](https://discord.gg/tXSnBVqFp), and a live testnet anyone could join. That consistent public presence is what put us on Skypie DAO's radar. They were already watching before we ever reached out.
 
@@ -222,10 +221,20 @@ Deposit transaction: [`5a06c416...74ff70`](https://cardanoscan.io/transaction/5a
 
 **What happened after purchase:** The full 30 ADA was locked in escrow on-chain when the mission went live. Hunters claimed the open slots, submitted their predictions, and Skypie DAO reviewed each submission independently. On approval, ADA was released directly to the hunter's wallet as a real Cardano transaction — no manual transfers, no chasing payment.
 
-First payout: [@gabimax](https://x.com/gabimax) received 15 ADA
+First payout: @gabimax received 15 ADA
 Payout transaction: [`2a712f64...81f668`](https://cardanoscan.io/transaction/2a712f64a5269ad2a3218c3543b633ed40f4f52fa83e9b286b87396e0781f668)
 
 The remaining slot stays open and funded until claimed and approved, or until the poster cancels or the deadline triggers an automatic refund of the unspent 15 ADA back to Skypie DAO. The full loop — fund, claim, submit, approve, pay, prove — ran on Cardano Mainnet with every step publicly verifiable.
+
+---
+
+# Feedback Pie Evidence
+
+## Feedback Slide A: Recorded Feedback Sessions
+
+| Project | Builder | Recorded session                                                                                          |
+| ------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| Haulink | Ayzed   | [Opa's Review on Haulink](https://drive.google.com/file/d/1c6pYfl7Q7MGaLHFqMsWbGgtfkjEj8hR9/view?usp=sharing) |
 
 ---
 
@@ -245,5 +254,6 @@ The remaining slot stays open and funded until claimed and approved, or until th
 
 **Optional track evidence**
 Cardano: Mainnet live since July 13, 2026. Deposits, payouts, on-chain proof, public ledger at [thequesters.fun/ledger](https://thequesters.fun/ledger).
+Feedback: recorded review of Haulink by Ayzed — [Opa's Review on Haulink](https://drive.google.com/file/d/1c6pYfl7Q7MGaLHFqMsWbGgtfkjEj8hR9/view?usp=sharing).
 
 ---
