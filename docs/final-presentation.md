@@ -20,7 +20,7 @@
 ## Slide 2: Project Identity
 
 - **Project name:** The Quest
-- **One-sentence description:** A Cardano-powered community bounty platform where anyone can post missions, claim work, and earn real ADA, with every completion permanently recorded on-chain as portable reputation.
+- **One-sentence description:** A Cardano-powered gamified community bounty platform where anyone can post missions, claim work, and earn real ADA, with every completion permanently recorded on-chain as portable reputation.
 - **Official public repository:** [github.com/opa1/the-quest](https://github.com/opa1/the-quest)
 - **Deployed public product:** [thequesters.fun](https://thequesters.fun)
 - **Official project X account:** [@the_questgg](https://x.com/the_questgg)
